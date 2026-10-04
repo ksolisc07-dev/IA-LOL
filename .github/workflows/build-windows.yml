@@ -43,6 +43,15 @@ jobs:
           echo "$out"
           echo "$out" | grep -q "Alertas automáticas"
 
+      - name: Probar la voz del .exe (graba a un archivo .wav)
+        run: |
+          out=$(echo "" | COACH_VOICE_WAV="$PWD/voz.wav" ./dist/LoLCoach.exe probar-voz 2>&1 || true)
+          echo "$out"
+          echo "$out" | grep -q "Usando la voz de Windows"
+          size=$(stat -c %s voz.wav)
+          echo "voz.wav: $size bytes"
+          [ "$size" -gt 10000 ]
+
       - name: Compilar instalador
         run: |
           choco install innosetup -y --no-progress

@@ -30,6 +30,8 @@ de listar todo."""
 REASON_PROMPTS = {
     "inicio": "Acaba de empezar la partida. Dame el plan de juego: cómo jugar contra mi rival de línea, "
               "cuál es mi condición de victoria y qué objetos debería armarme contra esta composición enemiga.",
+    "conexion": "Me conecté al coach a mitad de partida. Según cómo va la partida ahora mismo, dime qué "
+                "debería hacer en los próximos minutos y qué objetos armarme con lo que ya tengo.",
     "muerte": "Acabo de morir. Dime qué probablemente hice mal según el contexto y qué debería "
               "comprar ahora con mi oro disponible (si puedo comprar algo útil).",
     "revision": "Revisión rápida: ¿qué es lo más importante que debería mejorar o hacer en los próximos minutos?",

@@ -57,7 +57,11 @@ class Analyzer:
             # partida) para tener timers de objetivos y racha de muertes correctos.
             self._process_events(snap)
             self._announced.clear()
-            alerts.append(Alert("Coach activado. Preparando tu plan de juego.", coach_reason="inicio", priority=2))
+            if now < 180:
+                alerts.append(Alert("Coach activado. Preparando tu plan de juego.", coach_reason="inicio", priority=2))
+            else:
+                alerts.append(Alert("Coach activado a mitad de partida. Analizando la situación.",
+                                    coach_reason="conexion", priority=2))
             return alerts
 
         alerts += self._process_events(snap)

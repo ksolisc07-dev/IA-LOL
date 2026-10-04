@@ -27,7 +27,7 @@ def test_parse_snapshot_identifies_player_and_opponent():
 
 
 def test_first_update_requests_game_plan_and_ignores_old_events():
-    alerts = Analyzer().update(demo_snapshot())
+    alerts = Analyzer().update(replace(demo_snapshot(), game_time=60))
     assert [a.coach_reason for a in alerts] == ["inicio"]
 
 
@@ -211,3 +211,10 @@ def test_platform_aliases():
         assert "lan, las" in str(exc)
     else:
         raise AssertionError("debería fallar")
+
+
+def test_start_mid_game_is_not_called_game_start():
+    alerts = Analyzer().update(demo_snapshot())  # la partida de ejemplo va por el minuto 14
+    assert [a.coach_reason for a in alerts] == ["conexion"]
+    early = replace(demo_snapshot(), game_time=90)
+    assert [a.coach_reason for a in Analyzer().update(early)] == ["inicio"]

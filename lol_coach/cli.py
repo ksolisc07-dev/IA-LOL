@@ -141,8 +141,7 @@ def run_demo(cfg: Config) -> None:
     voice.say(free_coach.game_plan(snap), important=True)
     print("Consejo tras tu muerte:")
     voice.say(coach.live_advice(snap, "muerte", [a.message for a in alerts if a.message]), important=True)
-    if cfg.voice_enabled:
-        time.sleep(15)  # dar tiempo a que termine de hablar
+    voice.wait()  # que termine de hablar antes de volver al menú
 
 
 def run_review(cfg: Config, riot_id: str, platform: str, count: int, output: str | None) -> None:
@@ -258,6 +257,7 @@ def main(argv: list[str] | None = None) -> None:
     sub.add_parser("en-vivo", help="coach durante la partida (por defecto)")
     sub.add_parser("demo", help="prueba con una partida de ejemplo")
     sub.add_parser("menu", help="menú interactivo")
+    sub.add_parser("probar-voz", help="dice una frase de prueba")
     sub.add_parser("activar-ia", help="instala Claude Code e inicia sesión con tu Claude Pro/Max")
     review = sub.add_parser("analizar", help="analiza tus últimas rankeds con la API de Riot")
     review.add_argument("--riot-id", default=cfg.riot_id, help="Nombre#TAG")
@@ -271,6 +271,10 @@ def main(argv: list[str] | None = None) -> None:
     try:
         if args.cmd == "menu" or (args.cmd is None and getattr(sys, "frozen", False)):
             run_menu(cfg)
+        elif args.cmd == "probar-voz":
+            voice = Voice(True, cfg.voice_rate)
+            voice.say("Hola, soy tu coach de League of Legends. Si me escuchas, la voz funciona.", important=True)
+            voice.wait(30)
         elif args.cmd == "activar-ia":
             setup_subscription()
         elif args.cmd == "demo":

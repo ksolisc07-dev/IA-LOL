@@ -212,7 +212,7 @@ def answer(snap: GameSnapshot | None, question: str) -> str:
 
 
 def advice(snap: GameSnapshot, reason: str) -> str:
-    if reason == "inicio":
+    if reason in ("inicio", "conexion"):
         return game_plan(snap)
     if reason == "muerte":
         return death_advice(snap)
