@@ -183,12 +183,17 @@ def setup_subscription() -> None:
             return
         if input("Claude Code no está instalado. ¿Instalarlo ahora? [S/n]: ").strip().lower() in ("n", "no"):
             return
-        subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
-                        "irm https://claude.ai/install.ps1 | iex"])
+        try:
+            # Instalador oficial vía winget (incluido en Windows 10/11).
+            subprocess.run(["winget", "install", "-e", "--id", "Anthropic.ClaudeCode",
+                            "--accept-package-agreements", "--accept-source-agreements"])
+        except OSError:
+            pass
         exe = find_claude_code()
         if exe is None:
-            print("No se pudo instalar. Instálalo a mano en PowerShell con:")
-            print("  irm https://claude.ai/install.ps1 | iex")
+            print("No se pudo instalar automáticamente. Abre PowerShell y ejecuta:")
+            print("  winget install Anthropic.ClaudeCode")
+            print("Luego cierra y vuelve a abrir el coach.")
             return
     print("\nSe abrirá el navegador para iniciar sesión con tu cuenta de Claude.")
     subprocess.run([exe, "auth", "login", "--claudeai"])

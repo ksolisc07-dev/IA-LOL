@@ -1,37 +1,27 @@
 """Salida por voz (texto a voz) en un hilo aparte para no bloquear el bucle.
 
-En Windows se usa el motor de voz del sistema (System.Speech, el mismo del Narrador)
-a través de un proceso de PowerShell que se mantiene abierto. En otros sistemas, pyttsx3.
+En Windows se usa directamente el motor de voz del sistema (SAPI, el mismo del Narrador).
+En otros sistemas, pyttsx3.
 """
 
 from __future__ import annotations
 
-import base64
+import os
 import queue
-import subprocess
 import sys
 import threading
 import time
 
 SPANISH_HINTS = ("spanish", "español", "espanol", "es-", "es_", "sabina", "helena", "laura", "pablo", "raul")
+SSFM_CREATE_FOR_WRITE = 3  # SpeechStreamFileMode de SAPI
 
-# El texto llega en base64 (UTF-8) para no depender de la codificación de la consola.
-_PS_SCRIPT = r"""
-$ErrorActionPreference = 'Stop'
-Add-Type -AssemblyName System.Speech
-$s = New-Object System.Speech.Synthesis.SpeechSynthesizer
-if ($env:COACH_VOICE_WAV) { $s.SetOutputToWaveFile($env:COACH_VOICE_WAV) } else { $s.SetOutputToDefaultAudioDevice() }
-$v = $s.GetInstalledVoices() | Where-Object { $_.Enabled -and $_.VoiceInfo.Culture.Name -like 'es*' } | Select-Object -First 1
-if ($v) { $s.SelectVoice($v.VoiceInfo.Name) }
-$s.Rate = __RATE__
-[Console]::Out.WriteLine('VOZ|' + $s.Voice.Name + '|' + $s.Voice.Culture.Name)
-[Console]::Out.Flush()
-while ($null -ne ($l = [Console]::In.ReadLine())) {
-    if ($l) { $s.Speak([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($l))) }
-    [Console]::Out.WriteLine('OK')
-    [Console]::Out.Flush()
-}
-"""
+
+def _is_spanish_lcid(language: str) -> bool:
+    """SAPI da el idioma como LCID hexadecimal (p. ej. "80A" = es-MX); 0x0A es español."""
+    try:
+        return int(language.split(";")[0], 16) & 0x3FF == 0x0A
+    except ValueError:
+        return False
 
 
 def _wpm_to_sapi_rate(rate: int) -> int:
@@ -76,32 +66,41 @@ class Voice:
         return run
 
     def _windows_worker(self) -> None:
-        script = _PS_SCRIPT.replace("__RATE__", str(_wpm_to_sapi_rate(self.rate)))
-        encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
-        proc = subprocess.Popen(
-            ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-             "-EncodedCommand", encoded],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, encoding="utf-8", errors="replace",
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-        header = proc.stdout.readline().strip()
-        if not header.startswith("VOZ|"):
-            raise RuntimeError(proc.stderr.read().strip()[:300] or "no se pudo iniciar la voz de Windows")
-        _, name, culture = (header.split("|") + ["", ""])[:3]
-        print(f"[voz] Usando la voz de Windows: {name} ({culture})")
-        if not culture.lower().startswith("es"):
+        import comtypes
+        import comtypes.client
+
+        # Cada hilo que usa COM debe inicializarlo; sin esto la voz falla en silencio.
+        comtypes.CoInitialize()
+        engine = comtypes.client.CreateObject("SAPI.SpVoice")
+        voices = engine.GetVoices()
+        chosen = None
+        for i in range(voices.Count):
+            token = voices.Item(i)
+            if _is_spanish_lcid(token.GetAttribute("Language") or ""):
+                chosen = token
+                break
+        if chosen is not None:
+            engine.Voice = chosen
+        engine.Rate = _wpm_to_sapi_rate(self.rate)
+        print(f"[voz] Usando la voz de Windows: {engine.Voice.GetDescription()}")
+        if chosen is None:
             print("[voz] No tienes una voz en español instalada. Agrégala en Configuración → "
                   "Hora e idioma → Voz → Agregar voces → Español, y reinicia el coach.")
+
+        stream = None
+        wav = os.getenv("COACH_VOICE_WAV")  # para pruebas sin altavoces: graba a un archivo
+        if wav:
+            stream = comtypes.client.CreateObject("SAPI.SpFileStream")
+            stream.Open(wav, SSFM_CREATE_FOR_WRITE)
+            engine.AudioOutputStream = stream
         while True:
             text = self._queue.get()
             self._speaking = True
             try:
-                line = base64.b64encode(" ".join(text.split()).encode("utf-8")).decode("ascii")
-                proc.stdin.write(line + "\n")
-                proc.stdin.flush()
-                if proc.stdout.readline().strip() != "OK":
-                    raise RuntimeError(proc.stderr.read().strip()[:300] or "el proceso de voz se cerró")
+                engine.Speak(" ".join(text.split()))
+                if stream is not None:
+                    stream.Close()
+                    stream = None
             finally:
                 self._speaking = False
 

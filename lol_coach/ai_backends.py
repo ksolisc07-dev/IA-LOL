@@ -84,10 +84,13 @@ def find_claude_code() -> str | None:
     found = shutil.which("claude")
     if found:
         return found
-    # Ubicación del instalador nativo en Windows, por si no está en el PATH.
+    # Ubicaciones habituales en Windows, por si aún no están en el PATH.
     home = os.path.expanduser("~")
+    local = os.getenv("LOCALAPPDATA", os.path.join(home, "AppData", "Local"))
     for candidate in (os.path.join(home, ".local", "bin", "claude.exe"),
-                      os.path.join(home, ".local", "bin", "claude")):
+                      os.path.join(home, ".local", "bin", "claude"),
+                      # Instalación con winget
+                      os.path.join(local, "Microsoft", "WinGet", "Links", "claude.exe")):
         if os.path.isfile(candidate):
             return candidate
     return None

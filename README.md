@@ -15,7 +15,7 @@ Un coach que te acompaña **por voz** durante tus partidas clasificatorias. Te d
 
 **Activar la IA:** abre el coach y elige **"4) Activar la IA con mi suscripción de Claude"**. Instala Claude Code y abre el navegador para que inicies sesión con tu cuenta de Claude. Solo se hace una vez. El plan gratuito de Claude no incluye Claude Code.
 
-A mano: en PowerShell ejecuta `irm https://claude.ai/install.ps1 | iex` y después `claude auth login`.
+A mano: en PowerShell ejecuta `winget install Anthropic.ClaudeCode` y después `claude auth login`.
 
 Las consultas del coach cuentan dentro de los límites de uso de tu plan, igual que cuando usas Claude.
 
@@ -47,7 +47,7 @@ Lee la **Live Client Data API** oficial que el propio juego expone en `https://1
 2. Ábrelo y sigue los pasos. No pide permisos de administrador y crea un acceso directo en el escritorio.
 3. Abre **LoL Coach IA** y elige en el menú: coach en vivo, demo, análisis de tus rankeds o activar la IA.
 
-> Como el programa no está firmado digitalmente, Windows puede mostrar "Windows protegió tu PC". Pulsa **Más información → Ejecutar de todas formas**.
+> Como el programa no está firmado digitalmente, Chrome puede bloquear la descarga ("Este archivo es peligroso") y Windows puede mostrar "Windows protegió tu PC". En Chrome abre las descargas (Ctrl+J) y elige **Conservar / Descargar archivo peligroso**; en Windows pulsa **Más información → Ejecutar de todas formas**. Si prefieres no hacerlo, usa la instalación con Python (`instalar.bat`), que no descarga ningún .exe.
 
 ## Instalación con Python (alternativa)
 
