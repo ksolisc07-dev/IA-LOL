@@ -90,6 +90,9 @@ def run_live(cfg: Config, client=None) -> None:
     analyzer: Analyzer | None = None
     log: LiveGameLog | None = None
     print("Esperando a que empiece una partida de League of Legends...")
+    # Saludo por voz para comprobar que el audio funciona antes de entrar a la partida.
+    voice.say("Hola, soy tu coach. Te hablaré en cuanto empiece la partida, después de la pantalla de carga.",
+              important=True)
     while True:
         try:
             snap = parse_snapshot(client.fetch())
