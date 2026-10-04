@@ -196,3 +196,18 @@ def test_detect_backend_modes(monkeypatch):
     monkeypatch.setattr(ai_backends, "find_claude_code", lambda: "/usr/bin/claude")
     assert isinstance(ai_backends.detect_backend("auto", "m", "sonnet"), ai_backends.ClaudeSubscription)
     assert ai_backends.detect_backend("gratis", "m", "sonnet") is None
+
+
+def test_platform_aliases():
+    from lol_coach.riot_api import RiotAPIError, RiotClient, normalize_platform
+
+    assert normalize_platform(" LAN ") == "la1"
+    assert normalize_platform("las") == "la2"
+    assert normalize_platform("euw1") == "euw1"
+    assert RiotClient("key", "lan").region == "americas"
+    try:
+        RiotClient("key", "marte")
+    except RiotAPIError as exc:
+        assert "lan, las" in str(exc)
+    else:
+        raise AssertionError("debería fallar")

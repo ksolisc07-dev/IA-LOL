@@ -18,6 +18,7 @@ from lol_coach.config import Config, app_dir, save_setting
 from lol_coach.game_state import GameSnapshot, parse_snapshot
 from lol_coach.live_client import FileClient, GameNotRunning, LiveClient
 from lol_coach.postgame import LiveGameLog, format_matches, summarize_match
+from lol_coach.riot_api import normalize_platform
 from lol_coach.voice import Voice
 
 DEMO_FILE = Path(__file__).parent / "demo_data" / "sample_game.json"
@@ -144,6 +145,8 @@ def run_demo(cfg: Config) -> None:
 def run_review(cfg: Config, riot_id: str, platform: str, count: int, output: str | None) -> None:
     from lol_coach.riot_api import RiotAPIError, RiotClient, item_names
 
+    print(f"\nBuscando las rankeds de {riot_id} en {platform}...")
+
     if not cfg.riot_api_key:
         sys.exit("Falta RIOT_API_KEY. Consíguela en https://developer.riotgames.com y ponla en tu .env")
     try:
@@ -193,39 +196,51 @@ def setup_subscription() -> None:
     print("Listo. Desde ahora el coach usará la IA con tu suscripción.")
 
 
+def _review_from_menu(cfg: Config) -> None:
+    if not cfg.riot_api_key:
+        print("\nNecesitas una API key de Riot (gratis): https://developer.riotgames.com")
+        key = input("Pégala aquí (o Enter para volver): ").strip()
+        if not key:
+            return
+        save_setting("RIOT_API_KEY", key)
+        cfg.riot_api_key = key
+    riot_id = input(f"Tu Riot ID (Nombre#TAG) [{cfg.riot_id or ''}]: ").strip() or cfg.riot_id or ""
+    platform = input(f"Servidor (lan, las, na, euw, br...) [{cfg.riot_platform}]: ").strip()
+    platform = normalize_platform(platform or cfg.riot_platform)
+    save_setting("RIOT_ID", riot_id)
+    save_setting("RIOT_PLATFORM", platform)
+    cfg.riot_id, cfg.riot_platform = riot_id, platform
+    run_review(cfg, riot_id, platform, 10, str(app_dir() / "informe.md"))
+
+
 def run_menu(cfg: Config) -> None:
-    """Menú para quien abre el programa con doble clic."""
-    has_ai = detect_backend(cfg.mode, cfg.model, cfg.subscription_model) is not None
-    print("\n=== Coach para League of Legends ===")
-    print(f"IA: {'activada' if has_ai else 'desactivada (modo gratuito)'}\n")
-    print("  1) Coach en vivo (déjalo abierto mientras juegas)")
-    print("  2) Demo con una partida de ejemplo")
-    print("  3) Analizar mis últimas rankeds")
-    print("  4) Activar la IA con mi suscripción de Claude (Pro/Max)")
-    print("  5) Salir\n")
-    choice = input("Elige una opción [1]: ").strip() or "1"
-    if choice == "1":
-        run_live(cfg)
-    elif choice == "2":
-        run_demo(cfg)
-    elif choice == "4":
-        setup_subscription()
-        cfg.mode = "auto"
-        run_menu(cfg)
-    elif choice == "3":
-        if not cfg.riot_api_key:
-            print("\nNecesitas una API key de Riot (gratis): https://developer.riotgames.com")
-            key = input("Pégala aquí: ").strip()
-            if not key:
-                return
-            save_setting("RIOT_API_KEY", key)
-            cfg.riot_api_key = key
-        riot_id = cfg.riot_id or input("Tu Riot ID (Nombre#TAG): ").strip()
-        platform = input(f"Servidor (la1=LAN, la2=LAS, na1, euw1...) [{cfg.riot_platform}]: ").strip()
-        platform = platform or cfg.riot_platform
-        save_setting("RIOT_ID", riot_id)
-        save_setting("RIOT_PLATFORM", platform)
-        run_review(cfg, riot_id, platform, 10, str(app_dir() / "informe.md"))
+    """Menú para quien abre el programa con doble clic. Vuelve al menú tras cada opción."""
+    actions = {"1": run_live, "2": run_demo, "3": _review_from_menu}
+    while True:
+        has_ai = detect_backend(cfg.mode, cfg.model, cfg.subscription_model) is not None
+        print("\n=== Coach para League of Legends ===")
+        print(f"IA: {'activada' if has_ai else 'desactivada (modo gratuito)'}\n")
+        print("  1) Coach en vivo (déjalo abierto mientras juegas)")
+        print("  2) Demo con una partida de ejemplo")
+        print("  3) Analizar mis últimas rankeds")
+        print("  4) Activar la IA con mi suscripción de Claude (Pro/Max)")
+        print("  5) Salir\n")
+        choice = input("Elige una opción [1]: ").strip() or "1"
+        if choice == "5":
+            return
+        try:
+            if choice == "4":
+                setup_subscription()
+                cfg.mode = "auto"
+            elif choice in actions:
+                actions[choice](cfg)
+        except SystemExit as exc:
+            if isinstance(exc.code, str):
+                print(f"\n{exc.code}")
+        except KeyboardInterrupt:
+            print()
+        except Exception as exc:  # que un error no cierre la ventana sin explicación
+            print(f"\nOcurrió un error: {exc}")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -265,6 +280,12 @@ def main(argv: list[str] | None = None) -> None:
             run_live(cfg)
     except KeyboardInterrupt:
         print("\n¡Suerte en tus rankeds!")
+    except SystemExit as exc:
+        # Mostrar el mensaje antes de la pausa final; si no, la ventana se cierra sin verlo.
+        if isinstance(exc.code, str):
+            print(f"\n{exc.code}")
+            raise SystemExit(1) from None
+        raise
     finally:
         if getattr(sys, "frozen", False):
             # Abierto con doble clic: que la ventana no se cierre sin dejar leer el mensaje.
