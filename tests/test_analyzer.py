@@ -1,6 +1,8 @@
 from dataclasses import replace
 from types import SimpleNamespace
 
+from lol_coach import free_coach
+from lol_coach.ai_backends import AIError, AnthropicAPI
 from lol_coach.analyzer import Analyzer
 from lol_coach.cli import DEMO_FILE
 from lol_coach.coach import Coach
@@ -86,7 +88,7 @@ class FakeMessages:
 def test_coach_builds_prompt_and_tracks_tips():
     fake = FakeMessages()
     client = SimpleNamespace(beta=SimpleNamespace(messages=fake))
-    coach = Coach("claude-opus-5-5", client=client)
+    coach = Coach(AnthropicAPI("claude-opus-5-5", client=client))
     advice = coach.live_advice(demo_snapshot(), "muerte", ["Has muerto."])
     assert advice == "Compra Ángel de la guarda."
     call = fake.calls[0]
@@ -136,3 +138,61 @@ def test_save_setting_replaces_existing(tmp_path, monkeypatch):
     monkeypatch.delenv("RIOT_ID", raising=False)
     save_setting("RIOT_ID", "Nuevo#LAN", env)
     assert env.read_text(encoding="utf-8").splitlines() == ["COACH_VOICE=1", "RIOT_ID=Nuevo#LAN"]
+
+
+def test_free_build_advice_reads_enemy_comp():
+    snap = demo_snapshot()
+    comp, recs = free_coach.build_recommendations(snap)
+    # Kha'Zix y Zed son asesinos; Malphite es tanque; mezcla de daño.
+    assert set(comp.assassins) == {"Kha'Zix", "Zed"}
+    assert comp.tanks == ["Malphite"]
+    assert free_coach.my_kind(snap) == "adc"
+    assert ("Ángel de la guarda", "contra los asesinos Kha'Zix y Zed") in recs
+
+
+def test_free_build_advice_heavy_ap_and_healers():
+    snap = demo_snapshot()
+    names = [("Soraka", "Soraka"), ("Ahri", "Ahri"), ("Lux", "Lux"), ("Syndra", "Syndra"), ("Malphite", "Malphite")]
+    enemies = [replace(e, champion=n, champion_id=i) for e, (n, i) in zip(snap.enemies, names)]
+    me = replace(snap.me, champion="Garen", champion_id="Garen", position="TOP", items=[])
+    snap = replace(snap, enemies=enemies, me=me, game_time=60)
+    comp, recs = free_coach.build_recommendations(snap)
+    assert comp.heavy_ap and comp.healers == ["Soraka"]
+    assert [name for name, _ in recs] == ["Botas de mercurio", "Llamado del verdugo", "Fauces de Malmortius"]
+
+
+def test_free_death_advice_detects_gank():
+    snap = demo_snapshot()
+    text = free_coach.death_advice(snap)
+    assert "Te atraparon entre 2" not in text  # solo hubo un asistente
+    assert "Kha'Zix" in text or "jungla" in text
+
+
+def test_coach_without_ai_uses_rules():
+    coach = Coach(None)
+    assert coach.mode == "gratuito (sin IA)"
+    assert "Caitlyn" in coach.live_advice(demo_snapshot(), "inicio")
+    assert "solo puedo responder" in coach.answer(demo_snapshot(), "¿voy a dragón?")
+    assert "Te conviene armar" in coach.answer(demo_snapshot(), "¿qué me armo?")
+
+
+def test_coach_falls_back_to_rules_when_ai_fails():
+    class Broken:
+        name = "roto"
+
+        def ask(self, *args):
+            raise AIError("sin conexión")
+
+    advice = Coach(Broken()).live_advice(demo_snapshot(), "inicio")
+    assert "Caitlyn" in advice
+
+
+def test_detect_backend_modes(monkeypatch):
+    from lol_coach import ai_backends
+
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr(ai_backends, "find_claude_code", lambda: None)
+    assert ai_backends.detect_backend("auto", "m", "sonnet") is None
+    monkeypatch.setattr(ai_backends, "find_claude_code", lambda: "/usr/bin/claude")
+    assert isinstance(ai_backends.detect_backend("auto", "m", "sonnet"), ai_backends.ClaudeSubscription)
+    assert ai_backends.detect_backend("gratis", "m", "sonnet") is None

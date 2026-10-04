@@ -25,10 +25,6 @@ except ImportError:  # python-dotenv es opcional
     pass
 
 
-def has_credentials() -> bool:
-    return any(os.getenv(v) for v in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_PROFILE"))
-
-
 def save_setting(name: str, value: str, env_file: Path = ENV_FILE) -> None:
     """Guarda (o reemplaza) una variable en el archivo .env."""
     lines = env_file.read_text(encoding="utf-8").splitlines() if env_file.exists() else []
@@ -36,25 +32,6 @@ def save_setting(name: str, value: str, env_file: Path = ENV_FILE) -> None:
     lines.append(f"{name}={value}")
     env_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
     os.environ[name] = value
-
-
-def first_run_setup() -> bool:
-    """Pide la API key la primera vez y la guarda en .env. Devuelve True si hay credenciales."""
-    if has_credentials():
-        return True
-    if not sys.stdin or not sys.stdin.isatty():
-        return False
-    print("=" * 60)
-    print(" Configuración inicial del Coach de LoL")
-    print("=" * 60)
-    print("Necesitas una API key de Anthropic para que la IA te dé consejos.")
-    print("Consíguela en: https://console.anthropic.com/settings/keys\n")
-    key = input("Pega tu API key (empieza con sk-ant-) y pulsa Enter: ").strip()
-    if not key:
-        return False
-    save_setting("ANTHROPIC_API_KEY", key)
-    print(f"Guardada en {ENV_FILE}\n")
-    return True
 
 
 def _bool(name: str, default: bool) -> bool:
@@ -66,6 +43,12 @@ def _bool(name: str, default: bool) -> bool:
 
 @dataclass
 class Config:
+    # auto: usa la IA si está disponible (API key o Claude Code), si no, el modo gratuito.
+    # gratis: nunca usa IA. suscripcion: solo Claude Code. api: solo API key.
+    mode: str = os.getenv("COACH_MODO", "auto")
+    # Modelo al usar tu suscripción vía Claude Code: "sonnet" (rápido) u "opus".
+    subscription_model: str = os.getenv("COACH_MODELO_SUSCRIPCION", "sonnet")
+    # Modelo al usar una API key de pago.
     model: str = os.getenv("COACH_MODEL", "claude-opus-5-5")
     # Esfuerzo de razonamiento: "low" en partida para que responda rápido.
     live_effort: str = os.getenv("COACH_LIVE_EFFORT", "low")

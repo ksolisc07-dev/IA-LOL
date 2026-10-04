@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
 import threading
 import time
 from dataclasses import replace
 from pathlib import Path
 
-import anthropic
-
 from lol_coach.analyzer import Analyzer
 from lol_coach.coach import Coach
-from lol_coach.config import Config, app_dir, first_run_setup, save_setting
+from lol_coach import free_coach
+from lol_coach.ai_backends import detect_backend, find_claude_code
+from lol_coach.config import Config, app_dir, save_setting
 from lol_coach.game_state import GameSnapshot, parse_snapshot
 from lol_coach.live_client import FileClient, GameNotRunning, LiveClient
 from lol_coach.postgame import LiveGameLog, format_matches, summarize_match
@@ -53,8 +54,8 @@ class CoachWorker:
                 self._pending, self._busy = None, True
             try:
                 self.voice.say(fn(*args), important=True)
-            except (anthropic.APIError, TypeError) as exc:
-                print(f"[IA] Error al pedir consejo: {exc}")
+            except Exception as exc:  # que un fallo puntual no detenga al coach
+                print(f"[coach] Error al generar consejo: {exc}")
             finally:
                 with self._cond:
                     self._busy = False
@@ -68,9 +69,18 @@ def _question_loop(worker: CoachWorker, state: dict) -> None:
             worker.submit(worker.coach.answer, state.get("snap"), question, force=True)
 
 
+def make_coach(cfg: Config) -> Coach:
+    backend = detect_backend(cfg.mode, cfg.model, cfg.subscription_model)
+    coach = Coach(backend, cfg.live_effort, cfg.review_effort)
+    print(f"Modo del coach: {coach.mode}")
+    if backend is None and cfg.mode == "auto":
+        print("  (Si tienes Claude Pro o Max, instala Claude Code para activar la IA gratis; mira el README.)")
+    return coach
+
+
 def run_live(cfg: Config, client=None) -> None:
     voice = Voice(cfg.voice_enabled, cfg.voice_rate)
-    coach = Coach(cfg.model, cfg.live_effort, cfg.review_effort)
+    coach = make_coach(cfg)
     worker = CoachWorker(coach, voice)
     client = client or LiveClient()
     state: dict[str, GameSnapshot | None] = {"snap": None}
@@ -122,13 +132,11 @@ def run_demo(cfg: Config) -> None:
         if alert.message:
             print(f"  - {alert.message}")
     voice = Voice(cfg.voice_enabled, cfg.voice_rate)
-    coach = Coach(cfg.model, cfg.live_effort, cfg.review_effort)
-    print("\nPidiendo consejo a la IA...")
-    try:
-        advice = coach.live_advice(snap, "muerte", [a.message for a in alerts if a.message])
-    except (anthropic.APIError, TypeError) as exc:
-        sys.exit(f"[IA] Error al pedir consejo: {exc}")
-    voice.say(advice, important=True)
+    coach = make_coach(cfg)
+    print("\nPlan de juego al empezar la partida:")
+    voice.say(free_coach.game_plan(snap), important=True)
+    print("Consejo tras tu muerte:")
+    voice.say(coach.live_advice(snap, "muerte", [a.message for a in alerts if a.message]), important=True)
     if cfg.voice_enabled:
         time.sleep(15)  # dar tiempo a que termine de hablar
 
@@ -150,26 +158,60 @@ def run_review(cfg: Config, riot_id: str, platform: str, count: int, output: str
     except RiotAPIError as exc:
         sys.exit(f"Error de la API de Riot: {exc}")
 
-    print("Analizando con IA (puede tardar un minuto)...\n")
-    report = Coach(cfg.model, cfg.live_effort, cfg.review_effort).review_matches(format_matches(summaries))
+    coach = make_coach(cfg)
+    if coach.backend:
+        print("Analizando con IA (puede tardar un minuto)...\n")
+    report = coach.review_matches(format_matches(summaries))
     print(report)
     if output:
         Path(output).write_text(report, encoding="utf-8")
         print(f"\nInforme guardado en {output}")
 
 
+def setup_subscription() -> None:
+    """Instala Claude Code (si falta) e inicia sesión con la cuenta de Claude Pro/Max."""
+    print("\nLa IA usa tu suscripción Claude Pro o Max mediante Claude Code (el plan gratis no sirve).")
+    exe = find_claude_code()
+    if exe is None:
+        if sys.platform != "win32":
+            print("Instala Claude Code con: curl -fsSL https://claude.ai/install.sh | bash")
+            return
+        if input("Claude Code no está instalado. ¿Instalarlo ahora? [S/n]: ").strip().lower() in ("n", "no"):
+            return
+        subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
+                        "irm https://claude.ai/install.ps1 | iex"])
+        exe = find_claude_code()
+        if exe is None:
+            print("No se pudo instalar. Instálalo a mano en PowerShell con:")
+            print("  irm https://claude.ai/install.ps1 | iex")
+            return
+    print("\nSe abrirá el navegador para iniciar sesión con tu cuenta de Claude.")
+    subprocess.run([exe, "auth", "login", "--claudeai"])
+    status = subprocess.run([exe, "auth", "status", "--text"], capture_output=True, text=True)
+    print(status.stdout or status.stderr)
+    save_setting("COACH_MODO", "auto")
+    print("Listo. Desde ahora el coach usará la IA con tu suscripción.")
+
+
 def run_menu(cfg: Config) -> None:
     """Menú para quien abre el programa con doble clic."""
-    print("\n=== Coach de IA para League of Legends ===\n")
+    has_ai = detect_backend(cfg.mode, cfg.model, cfg.subscription_model) is not None
+    print("\n=== Coach para League of Legends ===")
+    print(f"IA: {'activada' if has_ai else 'desactivada (modo gratuito)'}\n")
     print("  1) Coach en vivo (déjalo abierto mientras juegas)")
     print("  2) Demo con una partida de ejemplo")
     print("  3) Analizar mis últimas rankeds")
-    print("  4) Salir\n")
+    print("  4) Activar la IA con mi suscripción de Claude (Pro/Max)")
+    print("  5) Salir\n")
     choice = input("Elige una opción [1]: ").strip() or "1"
     if choice == "1":
         run_live(cfg)
     elif choice == "2":
         run_demo(cfg)
+    elif choice == "4":
+        setup_subscription()
+        cfg.mode = "auto"
+        run_menu(cfg)
     elif choice == "3":
         if not cfg.riot_api_key:
             print("\nNecesitas una API key de Riot (gratis): https://developer.riotgames.com")
@@ -192,12 +234,13 @@ def main(argv: list[str] | None = None) -> None:
             # Evita errores con tildes y emojis en consolas de Windows.
             stream.reconfigure(encoding="utf-8", errors="replace")
     cfg = Config()
-    parser = argparse.ArgumentParser(prog="lol_coach", description="Coach de IA para tus rankeds de LoL")
+    parser = argparse.ArgumentParser(prog="lol_coach", description="Coach para tus rankeds de LoL")
     parser.add_argument("--sin-voz", action="store_true", help="solo mostrar texto")
     sub = parser.add_subparsers(dest="cmd")
     sub.add_parser("en-vivo", help="coach durante la partida (por defecto)")
     sub.add_parser("demo", help="prueba con una partida de ejemplo")
     sub.add_parser("menu", help="menú interactivo")
+    sub.add_parser("activar-ia", help="instala Claude Code e inicia sesión con tu Claude Pro/Max")
     review = sub.add_parser("analizar", help="analiza tus últimas rankeds con la API de Riot")
     review.add_argument("--riot-id", default=cfg.riot_id, help="Nombre#TAG")
     review.add_argument("--plataforma", default=cfg.riot_platform, help="la1, la2, na1, euw1, kr...")
@@ -205,13 +248,13 @@ def main(argv: list[str] | None = None) -> None:
     review.add_argument("--salida", help="guardar el informe en un archivo .md")
     args = parser.parse_args(argv)
 
-    if not first_run_setup():
-        print("Aviso: no se encontró ANTHROPIC_API_KEY. Ponla en tu archivo .env para que la IA pueda responder.")
     if args.sin_voz:
         cfg.voice_enabled = False
     try:
         if args.cmd == "menu" or (args.cmd is None and getattr(sys, "frozen", False)):
             run_menu(cfg)
+        elif args.cmd == "activar-ia":
+            setup_subscription()
         elif args.cmd == "demo":
             run_demo(cfg)
         elif args.cmd == "analizar":

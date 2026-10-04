@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import anthropic
-
+from lol_coach import free_coach
+from lol_coach.ai_backends import AIError
 from lol_coach.game_state import GameSnapshot
 
 LIVE_SYSTEM = """Eres un coach profesional de League of Legends (nivel Challenger) que acompaña \
@@ -37,33 +37,31 @@ REASON_PROMPTS = {
 
 
 class Coach:
-    def __init__(self, model: str, live_effort: str = "low", review_effort: str = "high",
-                 client: anthropic.Anthropic | None = None):
-        self.client = client or anthropic.Anthropic()
-        self.model = model
+    """Da consejos con IA si hay un backend disponible y, si no, con reglas gratuitas."""
+
+    def __init__(self, backend=None, live_effort: str = "low", review_effort: str = "high"):
+        self.backend = backend
         self.live_effort = live_effort
         self.review_effort = review_effort
         self.recent_tips: list[str] = []
 
-    def _ask(self, system: str, prompt: str, effort: str, max_tokens: int) -> str:
-        response = self.client.beta.messages.create(
-            model=self.model,
-            max_tokens=max_tokens,
-            system=system,
-            thinking={"type": "adaptive"},
-            output_config={"effort": effort},
-            # Si el modelo rechaza la petición, la API reintenta automáticamente con otro modelo.
-            betas=["server-side-fallback-2026-07-01"],
-            fallbacks="default",
-            messages=[{"role": "user", "content": prompt}],
-        )
-        if response.stop_reason == "refusal":
-            return "No pude generar un consejo para esta situación."
-        text = "".join(b.text for b in response.content if b.type == "text").strip()
-        return text
+    @property
+    def mode(self) -> str:
+        return f"IA con {self.backend.name}" if self.backend else "gratuito (sin IA)"
+
+    def _ask(self, system: str, prompt: str, effort: str, max_tokens: int) -> str | None:
+        """Pregunta a la IA; devuelve None si no hay IA o si falla (se usan las reglas)."""
+        if self.backend is None:
+            return None
+        try:
+            return self.backend.ask(system, prompt, effort, max_tokens)
+        except AIError as exc:
+            print(f"[IA] {exc} Uso el modo gratuito para este consejo.")
+            return None
 
     def _live_prompt(self, snap: GameSnapshot, request: str, alerts: list[str]) -> str:
-        parts = ["Estado actual de la partida:", snap.to_prompt()]
+        parts = ["Estado actual de la partida:", snap.to_prompt(), "",
+                 "Análisis automático de la composición enemiga:", free_coach.build_advice(snap)]
         if alerts:
             parts += ["", "Alertas automáticas recientes:", *[f"- {a}" for a in alerts]]
         if self.recent_tips:
@@ -76,7 +74,10 @@ class Coach:
         request = REASON_PROMPTS.get(reason, REASON_PROMPTS["revision"])
         prompt = self._live_prompt(snap, request, alerts or [])
         advice = self._ask(LIVE_SYSTEM, prompt, self.live_effort, max_tokens=4000)
-        self.recent_tips.append(advice)
+        if advice is None:
+            advice = free_coach.advice(snap, reason)
+        if advice:
+            self.recent_tips.append(advice)
         return advice
 
     def answer(self, snap: GameSnapshot | None, question: str) -> str:
@@ -84,7 +85,8 @@ class Coach:
             prompt = f"No hay una partida en curso. Pregunta del jugador: {question}"
         else:
             prompt = self._live_prompt(snap, f"Pregunta del jugador: {question}", [])
-        return self._ask(LIVE_SYSTEM, prompt, self.live_effort, max_tokens=4000)
+        advice = self._ask(LIVE_SYSTEM, prompt, self.live_effort, max_tokens=4000)
+        return advice if advice is not None else free_coach.answer(snap, question)
 
     def post_game(self, game_summary: str) -> str:
         prompt = (
@@ -93,7 +95,8 @@ class Coach:
             "Hazme un resumen hablado (máximo 6 frases, sin markdown, se leerá en voz alta): "
             "qué hice bien, cuáles fueron mis dos errores principales y qué practicar en la próxima partida."
         )
-        return self._ask(REVIEW_SYSTEM, prompt, self.review_effort, max_tokens=8000)
+        advice = self._ask(REVIEW_SYSTEM, prompt, self.review_effort, max_tokens=8000)
+        return advice if advice is not None else "Partida terminada. Buen trabajo, a por la siguiente."
 
     def review_matches(self, matches_report: str) -> str:
         prompt = (
@@ -103,4 +106,7 @@ class Coach:
             "recurrentes más importantes con evidencia de los datos, 3) recomendaciones de build y "
             "de pool de campeones, 4) un plan de práctica concreto para las próximas 10 partidas."
         )
-        return self._ask(REVIEW_SYSTEM, prompt, self.review_effort, max_tokens=16000)
+        report = self._ask(REVIEW_SYSTEM, prompt, self.review_effort, max_tokens=16000)
+        if report is None:
+            return "# Tus últimas partidas\n\n(Análisis con IA no disponible en modo gratuito.)\n\n" + matches_report
+        return report

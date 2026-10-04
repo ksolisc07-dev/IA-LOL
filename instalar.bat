@@ -45,9 +45,13 @@ echo [3/4] Instalando dependencias ^(puede tardar un minuto^)...
 ".venv\Scripts\python.exe" -m pip install --quiet --upgrade pip
 ".venv\Scripts\python.exe" -m pip install --quiet -r requirements.txt || goto :error
 
-rem --- 3. API key -----------------------------------------------------------
-echo [4/4] Configuracion...
-".venv\Scripts\python.exe" -c "from lol_coach.config import first_run_setup; first_run_setup()"
+rem --- 3. IA opcional (suscripcion Claude Pro/Max) ---------------------------
+echo [4/4] El coach funciona gratis sin IA.
+choice /C SN /M "Tienes Claude Pro o Max y quieres activar la IA"
+if errorlevel 2 goto :shortcut
+".venv\Scripts\python.exe" -m lol_coach activar-ia
+
+:shortcut
 
 rem --- 4. Lanzador y acceso directo ----------------------------------------
 > "iniciar.bat" (
