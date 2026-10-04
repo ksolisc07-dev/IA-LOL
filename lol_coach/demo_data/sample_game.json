@@ -1,0 +1,558 @@
+{
+ "activePlayer": {
+  "abilities": {},
+  "championStats": {
+   "abilityPower": 0.0,
+   "armor": 62.0,
+   "attackDamage": 148.0,
+   "attackRange": 525.0,
+   "attackSpeed": 0.98,
+   "currentHealth": 0.0,
+   "magicResist": 42.0,
+   "maxHealth": 1480.0,
+   "moveSpeed": 380.0
+  },
+  "currentGold": 1340.0,
+  "fullRunes": {},
+  "level": 8,
+  "riotId": "TuNombre#LAN",
+  "riotIdGameName": "TuNombre",
+  "riotIdTagLine": "LAN",
+  "summonerName": "TuNombre#LAN",
+  "teamRelativeColors": true
+ },
+ "allPlayers": [
+  {
+   "championName": "Darius",
+   "isBot": false,
+   "isDead": false,
+   "items": [
+    {
+     "canUse": false,
+     "consumable": false,
+     "count": 1,
+     "displayName": "Fuerza de la Trinidad",
+     "itemID": 3078,
+     "price": 3333,
+     "rawDescription": "",
+     "rawDisplayName": "",
+     "slot": 0
+    },
+    {
+     "canUse": false,
+     "consumable": false,
+     "count": 1,
+     "displayName": "Botas de acero reforzado",
+     "itemID": 3047,
+     "price": 1100,
+     "rawDescription": "",
+     "rawDisplayName": "",
+     "slot": 1
+    }
+   ],
+   "level": 11,
+   "position": "TOP",
+   "rawChampionName": "game_character_displayname_Darius",
+   "respawnTimer": 0.0,
+   "riotId": "Darius Main#LAN",
+   "riotIdGameName": "Darius Main",
+   "riotIdTagLine": "LAN",
+   "scores": {
+    "assists": 1,
+    "creepScore": 98,
+    "deaths": 2,
+    "kills": 3,
+    "wardScore": 6.2
+   },
+   "skinID": 0,
+   "summonerName": "Darius Main#LAN",
+   "summonerSpells": {},
+   "team": "ORDER"
+  },
+  {
+   "championName": "Lee Sin",
+   "isBot": false,
+   "isDead": false,
+   "items": [
+    {
+     "canUse": false,
+     "consumable": false,
+     "count": 1,
+     "displayName": "Eclipse",
+     "itemID": 6692,
+     "price": 2800,
+     "rawDescription": "",
+     "rawDisplayName": "",
+     "slot": 0
+    },
+    {
+     "canUse": false,
+     "consumable": false,
+     "count": 1,
+     "displayName": "Botas de mercurio",
+     "itemID": 3111,
+     "price": 1250,
+     "rawDescription": "",
+     "rawDisplayName": "",
+     "slot": 1
+    }
+   ],
+   "level": 10,
+   "position": "JUNGLE",
+   "rawChampionName": "game_character_displayname_Lee Sin",
+   "respawnTimer": 0.0,
+   "riotId": "JungleDiff#LAN",
+   "riotIdGameName": "JungleDiff",
+   "riotIdTagLine": "LAN",
+   "scores": {
+    "assists": 4,
+    "creepScore": 82,
+    "deaths": 3,
+    "kills": 2,
+    "wardScore": 9.1
+   },
+   "skinID": 0,
+   "summonerName": "JungleDiff#LAN",
+   "summonerSpells": {},
+   "team": "ORDER"
+  },
+  {
+   "championName": "Ahri",
+   "isBot": false,
+   "isDead": false,
+   "items": [
+    {
+     "canUse": false,
+     "consumable": false,
+     "count": 1,
+     "displayName": "Tormenta de Luden",
+     "itemID": 6655,
+     "price": 2850,
+     "rawDescription": "",
+     "rawDisplayName": "",
+     "slot": 0
+    },
+    {
+     "canUse": false,
+     "consumable": false,
+     "count": 1,
+     "displayName": "Botas del hechicero",
+     "itemID": 3020,
+     "price": 1100,
+     "rawDescription": "",
+     "rawDisplayName": "",
+     "slot": 1
+    }
+   ],
+   "level": 11,
+   "position": "MIDDLE",
+   "rawChampionName": "game_character_displayname_Ahri",
+   "respawnTimer": 0.0,
+   "riotId": "MidOrFeed#LAN",
+   "riotIdGameName": "MidOrFeed",
+   "riotIdTagLine": "LAN",
+   "scores": {
+    "assists": 3,
+    "creepScore": 121,
+    "deaths": 1,
+    "kills": 4,
+    "wardScore": 7.5
+   },
+   "skinID": 0,
+   "summonerName": "MidOrFeed#LAN",
+   "summonerSpells": {},
+   "team": "ORDER"
+  },
+  {
+   "championName": "Jinx",
+   "isBot": false,
+   "isDead": true,
+   "items": [
+    {
+     "canUse": false,
+     "consumable": false,
+     "count": 1,
+     "displayName": "Espada de Doran",
+     "itemID": 1055,
+     "price": 450,
+     "rawDescription": "",
+     "rawDisplayName": "",
+     "slot": 0
+    },
+    {
+     "canUse": false,
+     "consumable": false,
+     "count": 1,
+     "displayName": "Matakrakens",
+     "itemID": 6672,
+     "price": 3100,
+     "rawDescription": "",
+     "rawDisplayName": "",
+     "slot": 1
+    },
+    {
+     "canUse": false,
+     "consumable": false,
+     "count": 1,
+     "displayName": "Grebas de berserker",
+     "itemID": 3006,
+     "price": 1100,
+     "rawDescription": "",
+     "rawDisplayName": "",
+     "slot": 2
+    }
+   ],
+   "level": 8,
+   "position": "BOTTOM",
+   "rawChampionName": "game_character_displayname_Jinx",
+   "respawnTimer": 18.5,
+   "riotId": "TuNombre#LAN",
+   "riotIdGameName": "TuNombre",
+   "riotIdTagLine": "LAN",
+   "scores": {
+    "assists": 2,
+    "creepScore": 74,
+    "deaths": 4,
+    "kills": 1,
+    "wardScore": 4.0
+   },
+   "skinID": 0,
+   "summonerName": "TuNombre#LAN",
+   "summonerSpells": {},
+   "team": "ORDER"
+  },
+  {
+   "championName": "Thresh",
+   "isBot": false,
+   "isDead": false,
+   "items": [
+    {
+     "canUse": false,
+     "consumable": false,
+     "count": 1,
+     "displayName": "Medallón de los Solari de Hierro",
+     "itemID": 3190,
+     "price": 2200,
+     "rawDescription": "",
+     "rawDisplayName": "",
+     "slot": 0
+    }
+   ],
+   "level": 8,
+   "position": "UTILITY",
+   "rawChampionName": "game_character_displayname_Thresh",
+   "respawnTimer": 0.0,
+   "riotId": "Soporte#LAN",
+   "riotIdGameName": "Soporte",
+   "riotIdTagLine": "LAN",
+   "scores": {
+    "assists": 5,
+    "creepScore": 12,
+    "deaths": 3,
+    "kills": 0,
+    "wardScore": 22.0
+   },
+   "skinID": 0,
+   "summonerName": "Soporte#LAN",
+   "summonerSpells": {},
+   "team": "ORDER"
+  },
+  {
+   "championName": "Malphite",
+   "isBot": false,
+   "isDead": false,
+   "items": [
+    {
+     "canUse": false,
+     "consumable": false,
+     "count": 1,
+     "displayName": "Égida de Fuego Solar",
+     "itemID": 3068,
+     "price": 2700,
+     "rawDescription": "",
+     "rawDisplayName": "",
+     "slot": 0
+    },
+    {
+     "canUse": false,
+     "consumable": false,
+     "count": 1,
+     "displayName": "Botas de acero reforzado",
+     "itemID": 3047,
+     "price": 1100,
+     "rawDescription": "",
+     "rawDisplayName": "",
+     "slot": 1
+    }
+   ],
+   "level": 10,
+   "position": "TOP",
+   "rawChampionName": "game_character_displayname_Malphite",
+   "respawnTimer": 0.0,
+   "riotId": "Enemigo1#LAN",
+   "riotIdGameName": "Enemigo1",
+   "riotIdTagLine": "LAN",
+   "scores": {
+    "assists": 4,
+    "creepScore": 90,
+    "deaths": 3,
+    "kills": 1,
+    "wardScore": 5.0
+   },
+   "skinID": 0,
+   "summonerName": "Enemigo1#LAN",
+   "summonerSpells": {},
+   "team": "CHAOS"
+  },
+  {
+   "championName": "Kha'Zix",
+   "isBot": false,
+   "isDead": false,
+   "items": [
+    {
+     "canUse": false,
+     "consumable": false,
+     "count": 1,
+     "displayName": "Eclipse",
+     "itemID": 6692,
+     "price": 2800,
+     "rawDescription": "",
+     "rawDisplayName": "",
+     "slot": 0
+    }
+   ],
+   "level": 11,
+   "position": "JUNGLE",
+   "rawChampionName": "game_character_displayname_Kha'Zix",
+   "respawnTimer": 0.0,
+   "riotId": "Enemigo2#LAN",
+   "riotIdGameName": "Enemigo2",
+   "riotIdTagLine": "LAN",
+   "scores": {
+    "assists": 3,
+    "creepScore": 95,
+    "deaths": 2,
+    "kills": 5,
+    "wardScore": 10.0
+   },
+   "skinID": 0,
+   "summonerName": "Enemigo2#LAN",
+   "summonerSpells": {},
+   "team": "CHAOS"
+  },
+  {
+   "championName": "Zed",
+   "isBot": false,
+   "isDead": false,
+   "items": [
+    {
+     "canUse": false,
+     "consumable": false,
+     "count": 1,
+     "displayName": "Filo fantasmal de Youmuu",
+     "itemID": 3142,
+     "price": 2800,
+     "rawDescription": "",
+     "rawDisplayName": "",
+     "slot": 0
+    }
+   ],
+   "level": 11,
+   "position": "MIDDLE",
+   "rawChampionName": "game_character_displayname_Zed",
+   "respawnTimer": 0.0,
+   "riotId": "Enemigo3#LAN",
+   "riotIdGameName": "Enemigo3",
+   "riotIdTagLine": "LAN",
+   "scores": {
+    "assists": 2,
+    "creepScore": 118,
+    "deaths": 3,
+    "kills": 4,
+    "wardScore": 6.0
+   },
+   "skinID": 0,
+   "summonerName": "Enemigo3#LAN",
+   "summonerSpells": {},
+   "team": "CHAOS"
+  },
+  {
+   "championName": "Caitlyn",
+   "isBot": false,
+   "isDead": false,
+   "items": [
+    {
+     "canUse": false,
+     "consumable": false,
+     "count": 1,
+     "displayName": "Espada de Doran",
+     "itemID": 1055,
+     "price": 450,
+     "rawDescription": "",
+     "rawDisplayName": "",
+     "slot": 0
+    },
+    {
+     "canUse": false,
+     "consumable": false,
+     "count": 1,
+     "displayName": "Filo infinito",
+     "itemID": 3031,
+     "price": 3450,
+     "rawDescription": "",
+     "rawDisplayName": "",
+     "slot": 1
+    },
+    {
+     "canUse": false,
+     "consumable": false,
+     "count": 1,
+     "displayName": "Grebas de berserker",
+     "itemID": 3006,
+     "price": 1100,
+     "rawDescription": "",
+     "rawDisplayName": "",
+     "slot": 2
+    }
+   ],
+   "level": 10,
+   "position": "BOTTOM",
+   "rawChampionName": "game_character_displayname_Caitlyn",
+   "respawnTimer": 0.0,
+   "riotId": "Enemigo4#LAN",
+   "riotIdGameName": "Enemigo4",
+   "riotIdTagLine": "LAN",
+   "scores": {
+    "assists": 3,
+    "creepScore": 112,
+    "deaths": 1,
+    "kills": 5,
+    "wardScore": 6.5
+   },
+   "skinID": 0,
+   "summonerName": "Enemigo4#LAN",
+   "summonerSpells": {},
+   "team": "CHAOS"
+  },
+  {
+   "championName": "Lux",
+   "isBot": false,
+   "isDead": false,
+   "items": [
+    {
+     "canUse": false,
+     "consumable": false,
+     "count": 1,
+     "displayName": "Bendición de Zaz'Zak",
+     "itemID": 3871,
+     "price": 400,
+     "rawDescription": "",
+     "rawDisplayName": "",
+     "slot": 0
+    }
+   ],
+   "level": 9,
+   "position": "UTILITY",
+   "rawChampionName": "game_character_displayname_Lux",
+   "respawnTimer": 0.0,
+   "riotId": "Enemigo5#LAN",
+   "riotIdGameName": "Enemigo5",
+   "riotIdTagLine": "LAN",
+   "scores": {
+    "assists": 8,
+    "creepScore": 15,
+    "deaths": 1,
+    "kills": 1,
+    "wardScore": 18.0
+   },
+   "skinID": 0,
+   "summonerName": "Enemigo5#LAN",
+   "summonerSpells": {},
+   "team": "CHAOS"
+  }
+ ],
+ "events": {
+  "Events": [
+   {
+    "EventID": 0,
+    "EventName": "GameStart",
+    "EventTime": 0.05
+   },
+   {
+    "EventID": 1,
+    "EventName": "MinionsSpawning",
+    "EventTime": 65.0
+   },
+   {
+    "EventID": 2,
+    "EventName": "FirstBlood",
+    "EventTime": 190.2,
+    "Recipient": "Enemigo4#LAN"
+   },
+   {
+    "EventID": 3,
+    "EventName": "ChampionKill",
+    "EventTime": 190.2,
+    "KillerName": "Enemigo4#LAN",
+    "VictimName": "TuNombre#LAN",
+    "Assisters": [
+     "Enemigo5#LAN"
+    ]
+   },
+   {
+    "EventID": 4,
+    "EventName": "ChampionKill",
+    "EventTime": 402.7,
+    "KillerName": "TuNombre#LAN",
+    "VictimName": "Enemigo5#LAN",
+    "Assisters": [
+     "Soporte#LAN"
+    ]
+   },
+   {
+    "EventID": 5,
+    "EventName": "ChampionKill",
+    "EventTime": 455.1,
+    "KillerName": "Enemigo2#LAN",
+    "VictimName": "TuNombre#LAN",
+    "Assisters": [
+     "Enemigo4#LAN"
+    ]
+   },
+   {
+    "EventID": 6,
+    "EventName": "DragonKill",
+    "EventTime": 548.3,
+    "KillerName": "Enemigo2#LAN",
+    "DragonType": "Fire",
+    "Stolen": "False",
+    "Assisters": []
+   },
+   {
+    "EventID": 7,
+    "EventName": "ChampionKill",
+    "EventTime": 690.0,
+    "KillerName": "Enemigo3#LAN",
+    "VictimName": "TuNombre#LAN",
+    "Assisters": []
+   },
+   {
+    "EventID": 8,
+    "EventName": "ChampionKill",
+    "EventTime": 861.4,
+    "KillerName": "Enemigo2#LAN",
+    "VictimName": "TuNombre#LAN",
+    "Assisters": [
+     "Enemigo5#LAN"
+    ]
+   }
+  ]
+ },
+ "gameData": {
+  "gameMode": "CLASSIC",
+  "gameTime": 866.0,
+  "mapName": "Map11",
+  "mapNumber": 11,
+  "mapTerrain": "Infernal"
+ }
+}

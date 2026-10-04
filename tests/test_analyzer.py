@@ -1,0 +1,128 @@
+from dataclasses import replace
+from types import SimpleNamespace
+
+from lol_coach.analyzer import Analyzer
+from lol_coach.cli import DEMO_FILE
+from lol_coach.coach import Coach
+from lol_coach.game_state import parse_snapshot
+from lol_coach.live_client import FileClient
+from lol_coach.postgame import LiveGameLog, summarize_match
+
+
+def demo_snapshot():
+    return parse_snapshot(FileClient(DEMO_FILE).fetch())
+
+
+def test_parse_snapshot_identifies_player_and_opponent():
+    snap = demo_snapshot()
+    assert snap.me.champion == "Jinx"
+    assert snap.me.role == "ADC"
+    assert len(snap.allies) == 5 and len(snap.enemies) == 5
+    assert snap.lane_opponent.champion == "Caitlyn"
+    text = snap.to_prompt()
+    assert "Rival de línea: Caitlyn" in text
+    assert "Kha'Zix (enemigo) mató a Jinx (yo)" in text
+
+
+def test_first_update_requests_game_plan_and_ignores_old_events():
+    alerts = Analyzer().update(demo_snapshot())
+    assert [a.coach_reason for a in alerts] == ["inicio"]
+
+
+def test_detects_death_streak_and_farming_problems():
+    snap = demo_snapshot()
+    analyzer = Analyzer()
+    analyzer.update(replace(snap, events=snap.events[:-1], game_time=snap.game_time - 5))
+    alerts = analyzer.update(snap)
+    messages = " ".join(a.message for a in alerts)
+    assert any(a.coach_reason == "muerte" for a in alerts)
+    assert "3 muertes en diez minutos" in messages
+    assert "súbditos por detrás de Caitlyn" in messages
+    assert "te saca 2 niveles" in messages
+    assert "visión es baja" in messages
+
+
+def test_cooldowns_prevent_repeating_alerts():
+    snap = demo_snapshot()
+    analyzer = Analyzer()
+    analyzer.update(replace(snap, events=snap.events[:-1]))
+    analyzer.update(snap)
+    again = analyzer.update(replace(snap, game_time=snap.game_time + 10))
+    assert again == []
+
+
+def test_gold_and_dragon_timer_alerts():
+    snap = demo_snapshot()
+    alive_me = replace(snap.me, is_dead=False)
+    analyzer = Analyzer()
+    analyzer.update(snap)
+    rich = replace(snap, me=alive_me, current_gold=1800, game_time=548.3 + 250)
+    messages = [a.message for a in analyzer.update(rich)]
+    assert any("1800 de oro" in m for m in messages)
+    assert any("dragón aparece en un minuto" in m for m in messages)
+
+
+def test_periodic_review():
+    snap = demo_snapshot()
+    analyzer = Analyzer(review_interval=60)
+    analyzer.update(snap)
+    later = replace(snap, me=replace(snap.me, is_dead=False), game_time=snap.game_time + 61)
+    assert any(a.coach_reason == "revision" for a in analyzer.update(later))
+
+
+class FakeMessages:
+    def __init__(self):
+        self.calls = []
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+        return SimpleNamespace(
+            stop_reason="end_turn",
+            content=[SimpleNamespace(type="thinking", thinking=""),
+                     SimpleNamespace(type="text", text="Compra Ángel de la guarda.")],
+        )
+
+
+def test_coach_builds_prompt_and_tracks_tips():
+    fake = FakeMessages()
+    client = SimpleNamespace(beta=SimpleNamespace(messages=fake))
+    coach = Coach("claude-opus-5-5", client=client)
+    advice = coach.live_advice(demo_snapshot(), "muerte", ["Has muerto."])
+    assert advice == "Compra Ángel de la guarda."
+    call = fake.calls[0]
+    assert call["model"] == "claude-opus-5-5"
+    assert call["output_config"] == {"effort": "low"}
+    prompt = call["messages"][0]["content"]
+    assert "Acabo de morir" in prompt and "Has muerto." in prompt
+    coach.live_advice(demo_snapshot(), "revision")
+    assert "Compra Ángel de la guarda." in fake.calls[1]["messages"][0]["content"]
+
+
+def test_live_game_log_summary():
+    log = LiveGameLog()
+    snap = demo_snapshot()
+    log.record(snap)
+    log.record(snap)  # mismo minuto: no duplica
+    summary = log.summary()
+    assert summary.count("min 14") == 1
+    assert "Campeón: Jinx (ADC)" in summary
+
+
+def test_summarize_match():
+    def p(puuid, team, pos, champ, k, d, a, win):
+        return {"puuid": puuid, "teamId": team, "teamPosition": pos, "championName": champ,
+                "kills": k, "deaths": d, "assists": a, "win": win, "totalMinionsKilled": 200,
+                "neutralMinionsKilled": 10, "goldEarned": 12000, "totalDamageDealtToChampions": 20000,
+                "visionScore": 30, "visionWardsBoughtInGame": 2,
+                **{f"item{i}": 0 for i in range(7)}, "item0": 3031}
+    match = {"info": {"gameDuration": 1800, "participants": [
+        p("me", 100, "BOTTOM", "Jinx", 5, 2, 7, True),
+        p("ally", 100, "MIDDLE", "Ahri", 5, 3, 4, True),
+        p("opp", 200, "BOTTOM", "Caitlyn", 3, 5, 2, False),
+    ]}}
+    s = summarize_match(match, "me", {3031: "Filo infinito"})
+    assert s["resultado"] == "Victoria"
+    assert s["cs_min"] == 7.0
+    assert s["participacion_asesinatos"] == "120%"
+    assert s["objetos"] == ["Filo infinito"]
+    assert s["rival"]["campeon"] == "Caitlyn"
