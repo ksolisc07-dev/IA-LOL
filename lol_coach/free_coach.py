@@ -11,12 +11,12 @@ from lol_coach.game_state import GameSnapshot, PlayerState
 
 # id de objeto -> nombre en español (se actualiza con Data Dragon si hay internet).
 ITEM_NAMES = {
-    3111: "Botas de mercurio", 3047: "Botas de acero reforzado", 3156: "Fauces de Malmortius",
+    3111: "Botas de Mercurio", 3047: "Botas de acero reforzado", 3156: "Fauces de Malmortius",
     3102: "Velo de la Banshee", 3157: "Reloj de arena de Zhonya", 4401: "Fuerza de la naturaleza",
     3065: "Semblante espiritual", 3075: "Cota de espinas", 3076: "Chaleco de zarzas",
     3033: "Recordatorio mortal", 3165: "Morellonomicón", 3916: "Orbe del olvido",
-    3123: "Llamado del verdugo", 3036: "Saludos de Lord Dominik", 3135: "Bastón del vacío",
-    3026: "Ángel de la guarda", 3143: "Presagio de Randuin", 3110: "Corazón de hielo",
+    3123: "El Llamado del Verdugo", 3036: "Saludos de Lord Dominik", 3135: "Bastón del vacío",
+    3026: "Ángel Guardián", 3143: "Presagio de Randuin", 3110: "Corazón de hielo",
     3053: "Gaje de Sterak", 3071: "Cuchilla negra", 6333: "Danza de la muerte", 3814: "Filo de la noche",
     3139: "Cimitarra mercurial", 2504: "Rookern de Kaenic", 8020: "Máscara abisal",
     3222: "Bendición de Mikael", 6609: "Motosierra quimpunk",

@@ -147,7 +147,7 @@ def test_free_build_advice_reads_enemy_comp():
     assert set(comp.assassins) == {"Kha'Zix", "Zed"}
     assert comp.tanks == ["Malphite"]
     assert free_coach.my_kind(snap) == "adc"
-    assert ("Ángel de la guarda", "contra los asesinos Kha'Zix y Zed") in recs
+    assert ("Ángel Guardián", "contra los asesinos Kha'Zix y Zed") in recs
 
 
 def test_free_build_advice_heavy_ap_and_healers():
@@ -158,7 +158,7 @@ def test_free_build_advice_heavy_ap_and_healers():
     snap = replace(snap, enemies=enemies, me=me, game_time=60)
     comp, recs = free_coach.build_recommendations(snap)
     assert comp.heavy_ap and comp.healers == ["Soraka"]
-    assert [name for name, _ in recs] == ["Botas de mercurio", "Llamado del verdugo", "Fauces de Malmortius"]
+    assert [name for name, _ in recs] == ["Botas de Mercurio", "El Llamado del Verdugo", "Fauces de Malmortius"]
 
 
 def test_free_death_advice_detects_gank():
