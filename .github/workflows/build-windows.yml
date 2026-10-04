@@ -52,6 +52,12 @@ jobs:
           echo "voz.wav: $size bytes"
           [ "$size" -gt 10000 ]
 
+      - name: Probar la captura de pantalla del .exe
+        run: |
+          out=$(echo "" | ./dist/LoLCoach.exe probar-captura 2>&1 || true)
+          echo "$out"
+          echo "$out" | grep -q "Capturas guardadas"
+
       - name: Compilar instalador
         run: |
           choco install innosetup -y --no-progress

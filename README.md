@@ -13,6 +13,8 @@ Un coach que te acompaña **por voz** durante tus partidas clasificatorias. Te d
 | Preguntas libres ("¿voy a dragón?") | Solo "¿qué me armo?" | ✅ |
 | Resumen al terminar | — | ✅ |
 
+**La IA ve tu partida:** con la IA activada, el coach toma capturas de tu pantalla durante la partida y se las muestra a Claude cuando mueres (lo que pasó unos segundos antes), en las revisiones periódicas y cuando haces una pregunta. Así puede ver tu posición, la visión, los enemigos visibles y el minimapa. Juega en **Ventana sin bordes** para que la captura no salga negra. Las capturas solo se toman con una partida en curso, se guardan en una carpeta temporal y solo se envían a Claude junto con cada consejo. Para desactivarlo pon `COACH_VISION=0` en el `.env`.
+
 **Activar la IA:** abre el coach y elige **"4) Activar la IA con mi suscripción de Claude"**. Instala Claude Code y abre el navegador para que inicies sesión con tu cuenta de Claude. Solo se hace una vez. El plan gratuito de Claude no incluye Claude Code.
 
 A mano: en PowerShell ejecuta `winget install Anthropic.ClaudeCode` y después `claude auth login`.
@@ -93,6 +95,7 @@ Todas las opciones están en `.env.example`:
 - `ANTHROPIC_API_KEY`: opcional, solo si prefieres pagar por uso con la API en vez de usar tu suscripción.
 - `COACH_LIVE_EFFORT`: nivel de razonamiento en partida. `low` responde más rápido.
 - `COACH_REVIEW_INTERVAL`: segundos entre revisiones periódicas.
+- `COACH_VISION`: `1` (por defecto) para que la IA vea capturas de tu pantalla; `0` para desactivarlo. `COACH_MONITOR`: monitor a capturar (1 = principal).
 - `COACH_VOICE` y `COACH_VOICE_RATE`: activar la voz y su velocidad.
 
 ## Estructura
@@ -106,6 +109,7 @@ Todas las opciones están en `.env.example`:
 | `lol_coach/free_coach.py`, `champions.py` | Modo gratuito: builds y consejos por reglas |
 | `lol_coach/ai_backends.py` | Conexión con Claude (suscripción vía Claude Code, o API key) |
 | `lol_coach/voice.py` | Texto a voz |
+| `lol_coach/screen.py` | Capturas de pantalla para que la IA vea la partida |
 | `lol_coach/riot_api.py`, `postgame.py` | Análisis de partidas pasadas |
 | `lol_coach/cli.py` | Comandos y bucle principal |
 

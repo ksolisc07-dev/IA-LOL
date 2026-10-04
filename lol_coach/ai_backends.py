@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import base64
 import os
 import shutil
 import subprocess
@@ -30,12 +31,21 @@ class ClaudeSubscription:
         # Carpeta vacía para que Claude Code no lea archivos de proyecto.
         self.workdir = tempfile.mkdtemp(prefix="lolcoach_")
 
-    def ask(self, system: str, prompt: str, effort: str, max_tokens: int) -> str:
+    def ask(self, system: str, prompt: str, effort: str, max_tokens: int,
+            images: list[tuple[str, str]] | None = None) -> str:
         # En una sola línea: los argumentos con saltos de línea fallan si "claude" es un .cmd en Windows.
         system = " ".join(system.split())
-        cmd = [self.executable, "-p", "--system-prompt", system, "--tools", "",
+        # Sin herramientas, salvo "Read" (solo lectura) cuando hay capturas que mirar.
+        tools = ["--tools", "Read", "--allowedTools", "Read"] if images else ["--tools", ""]
+        cmd = [self.executable, "-p", "--system-prompt", system, *tools,
                "--model", self.model, "--effort", effort, "--output-format", "text",
                "--no-session-persistence"]
+        for folder in sorted({os.path.dirname(os.path.abspath(p)) for p, _ in images or []}):
+            cmd += ["--add-dir", folder]
+        if images:
+            listing = "\n".join(f"- {os.path.abspath(p)} ({desc})" for p, desc in images)
+            prompt += ("\n\nCapturas de mi pantalla de la partida. Ábrelas con la herramienta Read "
+                       f"antes de responder:\n{listing}")
         env = dict(os.environ)
         # Si hubiera una API key en el entorno, Claude Code la usaría en vez de la suscripción.
         env.pop("ANTHROPIC_API_KEY", None)
@@ -60,7 +70,15 @@ class AnthropicAPI:
         self.client = client or anthropic.Anthropic()
         self.model = model
 
-    def ask(self, system: str, prompt: str, effort: str, max_tokens: int) -> str:
+    def ask(self, system: str, prompt: str, effort: str, max_tokens: int,
+            images: list[tuple[str, str]] | None = None) -> str:
+        content: list[dict] = []
+        for path, desc in images or []:
+            with open(path, "rb") as f:
+                data = base64.standard_b64encode(f.read()).decode("ascii")
+            content += [{"type": "text", "text": f"Captura: {desc}"},
+                        {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": data}}]
+        content.append({"type": "text", "text": prompt})
         try:
             response = self.client.beta.messages.create(
                 model=self.model,
@@ -71,7 +89,7 @@ class AnthropicAPI:
                 # Si el modelo rechaza la petición, la API reintenta automáticamente con otro modelo.
                 betas=["server-side-fallback-2026-07-01"],
                 fallbacks="default",
-                messages=[{"role": "user", "content": prompt}],
+                messages=[{"role": "user", "content": content}],
             )
         except anthropic.APIError as exc:
             raise AIError(str(exc)) from exc

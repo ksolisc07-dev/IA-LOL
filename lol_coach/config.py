@@ -53,6 +53,10 @@ class Config:
     # Esfuerzo de razonamiento: "low" en partida para que responda rápido.
     live_effort: str = os.getenv("COACH_LIVE_EFFORT", "low")
     review_effort: str = os.getenv("COACH_REVIEW_EFFORT", "high")
+    # Que la IA vea capturas de tu pantalla durante la partida (solo con IA activada).
+    vision: bool = _bool("COACH_VISION", True)
+    # Monitor a capturar (1 = principal).
+    monitor: int = int(os.getenv("COACH_MONITOR", "1"))
     voice_enabled: bool = _bool("COACH_VOICE", True)
     voice_rate: int = int(os.getenv("COACH_VOICE_RATE", "185"))
     # Cada cuántos segundos de partida pedir una revisión general a la IA.

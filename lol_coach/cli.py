@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from dataclasses import replace
@@ -19,6 +21,7 @@ from lol_coach.game_state import GameSnapshot, parse_snapshot
 from lol_coach.live_client import FileClient, GameNotRunning, LiveClient
 from lol_coach.postgame import LiveGameLog, format_matches, summarize_match
 from lol_coach.riot_api import normalize_platform
+from lol_coach.screen import ScreenRecorder
 from lol_coach.voice import Voice
 
 DEMO_FILE = Path(__file__).parent / "demo_data" / "sample_game.json"
@@ -62,12 +65,27 @@ class CoachWorker:
                     self._busy = False
 
 
-def _question_loop(worker: CoachWorker, state: dict) -> None:
+def _question_loop(worker: CoachWorker, state: dict, recorder: ScreenRecorder | None) -> None:
     print("Escribe una pregunta y pulsa Enter en cualquier momento (ej.: '¿qué me armo?').")
     for line in sys.stdin:
         question = line.strip()
         if question:
-            worker.submit(worker.coach.answer, state.get("snap"), question, force=True)
+            snap = state.get("snap")
+            # Captura de unos segundos antes: al escribir estás en esta ventana, no en el juego.
+            images = recorder.capture(seconds_ago=4) if recorder and snap else None
+            worker.submit(worker.coach.answer, snap, question, images, force=True)
+
+
+def make_recorder(cfg: Config, coach: Coach) -> ScreenRecorder | None:
+    """La captura solo tiene sentido si hay IA que pueda mirar las imágenes."""
+    if not cfg.vision or coach.backend is None:
+        return None
+    if not (importlib.util.find_spec("mss") and importlib.util.find_spec("PIL")):
+        print("[captura] Falta 'mss' o 'pillow'; la IA no podrá ver tu pantalla.")
+        return None
+    folder = getattr(coach.backend, "workdir", None) or tempfile.mkdtemp(prefix="lolcoach_")
+    print("La IA podrá ver capturas de tu pantalla durante la partida (COACH_VISION=0 para desactivarlo).")
+    return ScreenRecorder(folder, monitor=cfg.monitor)
 
 
 def make_coach(cfg: Config) -> Coach:
@@ -85,7 +103,8 @@ def run_live(cfg: Config, client=None) -> None:
     worker = CoachWorker(coach, voice)
     client = client or LiveClient()
     state: dict[str, GameSnapshot | None] = {"snap": None}
-    threading.Thread(target=_question_loop, args=(worker, state), daemon=True).start()
+    recorder = make_recorder(cfg, coach)
+    threading.Thread(target=_question_loop, args=(worker, state, recorder), daemon=True).start()
 
     analyzer: Analyzer | None = None
     log: LiveGameLog | None = None
@@ -102,12 +121,16 @@ def run_live(cfg: Config, client=None) -> None:
                 worker.submit(coach.post_game, log.summary(), force=True)
                 coach.recent_tips.clear()
             analyzer, log, state["snap"] = None, None, None
+            if recorder:
+                recorder.set_active(False)
             time.sleep(5)
             continue
 
         if analyzer is None:
             analyzer, log = Analyzer(review_interval=cfg.review_interval), LiveGameLog()
             print(f"Partida detectada: {snap.me.champion} ({snap.me.role}).")
+            if recorder:
+                recorder.set_active(True)
         state["snap"] = snap
         log.record(snap)
 
@@ -118,7 +141,12 @@ def run_live(cfg: Config, client=None) -> None:
         if reasons:
             reason = "muerte" if "muerte" in reasons else reasons[0]
             context = [a.message for a in alerts if a.message]
-            worker.submit(coach.live_advice, snap, reason, context, force=reason != "revision")
+            images = None
+            if recorder and reason == "muerte":
+                images = recorder.capture_death()
+            elif recorder and reason in ("revision", "conexion"):
+                images = recorder.capture()
+            worker.submit(coach.live_advice, snap, reason, context, images, force=reason != "revision")
         time.sleep(cfg.poll_seconds)
 
 
@@ -263,6 +291,7 @@ def main(argv: list[str] | None = None) -> None:
     sub.add_parser("demo", help="prueba con una partida de ejemplo")
     sub.add_parser("menu", help="menú interactivo")
     sub.add_parser("probar-voz", help="dice una frase de prueba")
+    sub.add_parser("probar-captura", help="guarda una captura de pantalla de prueba")
     sub.add_parser("activar-ia", help="instala Claude Code e inicia sesión con tu Claude Pro/Max")
     review = sub.add_parser("analizar", help="analiza tus últimas rankeds con la API de Riot")
     review.add_argument("--riot-id", default=cfg.riot_id, help="Nombre#TAG")
@@ -276,6 +305,14 @@ def main(argv: list[str] | None = None) -> None:
     try:
         if args.cmd == "menu" or (args.cmd is None and getattr(sys, "frozen", False)):
             run_menu(cfg)
+        elif args.cmd == "probar-captura":
+            recorder = ScreenRecorder(app_dir(), monitor=cfg.monitor)
+            recorder.set_active(True)
+            time.sleep(3)
+            files = recorder.capture()
+            print("Capturas guardadas:" if files else f"No se pudo capturar: {recorder.error}")
+            for path, desc in files:
+                print(f"  {path} ({desc})")
         elif args.cmd == "probar-voz":
             voice = Voice(True, cfg.voice_rate)
             voice.say("Hola, soy tu coach de League of Legends. Si me escuchas, la voz funciona.", important=True)

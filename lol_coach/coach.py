@@ -27,6 +27,13 @@ concreta para corregirla. Prioriza los 3-4 problemas que más impacto tienen en 
 (farmeo, muertes evitables, visión, participación en objetivos, decisiones de build) en lugar \
 de listar todo."""
 
+VISION_NOTE = """
+
+Tienes capturas de mi pantalla. Úsalas para lo que los datos no dicen: mi posición en el mapa, \
+dónde están los enemigos visibles, la visión (guardianes) cerca de mí, mi vida y maná, y en el \
+minimapa los aliados (azul) y enemigos (rojo). Menciona lo que veas solo si es útil para el consejo; \
+si las imágenes no se ven bien (pantalla negra, menú, tienda), ignóralas."""
+
 REASON_PROMPTS = {
     "inicio": "Acaba de empezar la partida. Dame el plan de juego: cómo jugar contra mi rival de línea, "
               "cuál es mi condición de victoria y qué objetos debería armarme contra esta composición enemiga.",
@@ -51,11 +58,14 @@ class Coach:
     def mode(self) -> str:
         return f"IA con {self.backend.name}" if self.backend else "gratuito (sin IA)"
 
-    def _ask(self, system: str, prompt: str, effort: str, max_tokens: int) -> str | None:
+    def _ask(self, system: str, prompt: str, effort: str, max_tokens: int,
+             images: list[tuple[str, str]] | None = None) -> str | None:
         """Pregunta a la IA; devuelve None si no hay IA o si falla (se usan las reglas)."""
         if self.backend is None:
             return None
         try:
+            if images:
+                return self.backend.ask(system, prompt + VISION_NOTE, effort, max_tokens, images=images)
             return self.backend.ask(system, prompt, effort, max_tokens)
         except AIError as exc:
             print(f"[IA] {exc} Uso el modo gratuito para este consejo.")
@@ -72,22 +82,24 @@ class Coach:
         parts += ["", request]
         return "\n".join(parts)
 
-    def live_advice(self, snap: GameSnapshot, reason: str, alerts: list[str] | None = None) -> str:
+    def live_advice(self, snap: GameSnapshot, reason: str, alerts: list[str] | None = None,
+                    images: list[tuple[str, str]] | None = None) -> str:
         request = REASON_PROMPTS.get(reason, REASON_PROMPTS["revision"])
         prompt = self._live_prompt(snap, request, alerts or [])
-        advice = self._ask(LIVE_SYSTEM, prompt, self.live_effort, max_tokens=4000)
+        advice = self._ask(LIVE_SYSTEM, prompt, self.live_effort, max_tokens=4000, images=images)
         if advice is None:
             advice = free_coach.advice(snap, reason)
         if advice:
             self.recent_tips.append(advice)
         return advice
 
-    def answer(self, snap: GameSnapshot | None, question: str) -> str:
+    def answer(self, snap: GameSnapshot | None, question: str,
+               images: list[tuple[str, str]] | None = None) -> str:
         if snap is None:
             prompt = f"No hay una partida en curso. Pregunta del jugador: {question}"
         else:
             prompt = self._live_prompt(snap, f"Pregunta del jugador: {question}", [])
-        advice = self._ask(LIVE_SYSTEM, prompt, self.live_effort, max_tokens=4000)
+        advice = self._ask(LIVE_SYSTEM, prompt, self.live_effort, max_tokens=4000, images=images)
         return advice if advice is not None else free_coach.answer(snap, question)
 
     def post_game(self, game_summary: str) -> str:

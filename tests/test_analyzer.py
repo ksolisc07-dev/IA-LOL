@@ -94,10 +94,10 @@ def test_coach_builds_prompt_and_tracks_tips():
     call = fake.calls[0]
     assert call["model"] == "claude-opus-5-5"
     assert call["output_config"] == {"effort": "low"}
-    prompt = call["messages"][0]["content"]
+    prompt = call["messages"][0]["content"][-1]["text"]
     assert "Acabo de morir" in prompt and "Has muerto." in prompt
     coach.live_advice(demo_snapshot(), "revision")
-    assert "Compra Ángel de la guarda." in fake.calls[1]["messages"][0]["content"]
+    assert "Compra Ángel de la guarda." in fake.calls[1]["messages"][0]["content"][-1]["text"]
 
 
 def test_live_game_log_summary():
@@ -218,3 +218,46 @@ def test_start_mid_game_is_not_called_game_start():
     assert [a.coach_reason for a in alerts] == ["conexion"]
     early = replace(demo_snapshot(), game_time=90)
     assert [a.coach_reason for a in Analyzer().update(early)] == ["inicio"]
+
+
+def test_screen_recorder_keeps_recent_frames(tmp_path):
+    import time as _time
+
+    from PIL import Image
+
+    from lol_coach.screen import ScreenRecorder
+
+    colors = iter([(200, 0, 0), (0, 200, 0), (0, 0, 200)] + [(0, 0, 200)] * 100)
+    rec = ScreenRecorder(tmp_path, interval=0.05,
+                         grab_factory=lambda: (lambda: Image.new("RGB", (1920, 1080), next(colors))))
+    assert rec.capture() == []  # inactivo: no captura nada
+    rec.set_active(True)
+    _time.sleep(0.4)
+    files = rec.capture_death()
+    assert [desc for _, desc in files] == [
+        "mi pantalla hace unos 6 segundos", "zoom del minimapa hace unos 6 segundos", "mi pantalla al morir"]
+    full = Image.open(files[0][0])
+    assert full.width == 1280  # reducida para enviar menos datos
+    rec.set_active(False)
+    assert rec.capture() == []
+
+
+def test_subscription_backend_sends_images(monkeypatch, tmp_path):
+    from lol_coach import ai_backends
+
+    seen = {}
+
+    def fake_run(cmd, **kwargs):
+        seen["cmd"], seen["input"] = cmd, kwargs["input"]
+        return SimpleNamespace(returncode=0, stdout="Ve con tu equipo.", stderr="")
+
+    monkeypatch.setattr(ai_backends.subprocess, "run", fake_run)
+    shot = tmp_path / "captura.jpg"
+    shot.write_bytes(b"x")
+    backend = ai_backends.ClaudeSubscription("claude")
+    assert backend.ask("sistema", "consejo", "low", 100, images=[(str(shot), "mi pantalla")]) == "Ve con tu equipo."
+    assert seen["cmd"][seen["cmd"].index("--tools") + 1] == "Read"
+    assert str(tmp_path) in seen["cmd"]
+    assert str(shot) in seen["input"] and "mi pantalla" in seen["input"]
+    backend.ask("sistema", "consejo", "low", 100)
+    assert seen["cmd"][seen["cmd"].index("--tools") + 1] == ""
