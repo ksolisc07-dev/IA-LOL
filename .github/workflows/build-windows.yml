@@ -1,0 +1,66 @@
+name: Instalador de Windows
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt pyinstaller pytest
+
+      - name: Pruebas
+        run: python -m pytest -q
+
+      - name: Crear LoLCoach.exe
+        run: >
+          pyinstaller --noconfirm --onefile --console --name LoLCoach
+          --add-data "lol_coach/demo_data;lol_coach/demo_data"
+          --hidden-import pyttsx3.drivers
+          --hidden-import pyttsx3.drivers.sapi5
+          --collect-submodules comtypes
+          lol_coach_app.py
+
+      - name: Probar el .exe (demo sin API key)
+        run: |
+          out=$(echo "" | ./dist/LoLCoach.exe --sin-voz demo 2>&1 || true)
+          echo "$out"
+          echo "$out" | grep -q "Alertas automáticas"
+
+      - name: Compilar instalador
+        run: |
+          choco install innosetup -y --no-progress
+          version="${GITHUB_REF_NAME#v}"
+          [[ "$GITHUB_REF" == refs/tags/v* ]] || version="0.1.0"
+          "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" "//DAppVersion=$version" installer/LoLCoach.iss
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LoLCoach-Windows
+          path: |
+            dist/LoLCoach-Instalador.exe
+            dist/LoLCoach.exe
+
+      - name: Publicar release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/LoLCoach-Instalador.exe
+            dist/LoLCoach.exe

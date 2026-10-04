@@ -24,7 +24,20 @@ Un coach que te acompaña **por voz** durante tus partidas clasificatorias. Te d
 
 Lee la **Live Client Data API** oficial que el propio juego expone en `https://127.0.0.1:2999` mientras hay una partida en curso. Es la misma fuente que usan apps como Porofessor o Blitz. Solo lee datos que ya ves en pantalla (marcador, objetos, eventos) y **no toca el cliente ni automatiza nada**. Las alertas salen de reglas locales y los consejos los genera Claude (Anthropic). La voz usa el sintetizador de tu sistema operativo (en Windows, SAPI) mediante `pyttsx3`.
 
-## Instalación (Windows)
+## Instalación fácil (Windows, sin Python)
+
+1. Descarga **`LoLCoach-Instalador.exe`** desde la sección *Releases* del repositorio (o desde *Actions → Instalador de Windows → Artifacts*).
+2. Ábrelo y sigue los pasos. No pide permisos de administrador y crea un acceso directo en el escritorio.
+3. Abre **LoL Coach IA**. La primera vez te pide tu API key de Anthropic y la guarda.
+4. Elige en el menú: coach en vivo, demo o análisis de tus rankeds.
+
+> Como el programa no está firmado digitalmente, Windows puede mostrar "Windows protegió tu PC". Pulsa **Más información → Ejecutar de todas formas**.
+
+## Instalación con Python (alternativa)
+
+Doble clic en **`instalar.bat`**: instala Python (si falta) y las dependencias, te pide la API key y crea el acceso directo "LoL Coach IA" en el escritorio.
+
+## Instalación manual (Windows)
 
 1. Instala [Python 3.10+](https://www.python.org/downloads/) y marca "Add Python to PATH".
 2. En una terminal, dentro de esta carpeta:

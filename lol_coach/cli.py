@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 import threading
 import time
@@ -14,7 +13,7 @@ import anthropic
 
 from lol_coach.analyzer import Analyzer
 from lol_coach.coach import Coach
-from lol_coach.config import Config
+from lol_coach.config import Config, app_dir, first_run_setup, save_setting
 from lol_coach.game_state import GameSnapshot, parse_snapshot
 from lol_coach.live_client import FileClient, GameNotRunning, LiveClient
 from lol_coach.postgame import LiveGameLog, format_matches, summarize_match
@@ -159,13 +158,46 @@ def run_review(cfg: Config, riot_id: str, platform: str, count: int, output: str
         print(f"\nInforme guardado en {output}")
 
 
+def run_menu(cfg: Config) -> None:
+    """Menú para quien abre el programa con doble clic."""
+    print("\n=== Coach de IA para League of Legends ===\n")
+    print("  1) Coach en vivo (déjalo abierto mientras juegas)")
+    print("  2) Demo con una partida de ejemplo")
+    print("  3) Analizar mis últimas rankeds")
+    print("  4) Salir\n")
+    choice = input("Elige una opción [1]: ").strip() or "1"
+    if choice == "1":
+        run_live(cfg)
+    elif choice == "2":
+        run_demo(cfg)
+    elif choice == "3":
+        if not cfg.riot_api_key:
+            print("\nNecesitas una API key de Riot (gratis): https://developer.riotgames.com")
+            key = input("Pégala aquí: ").strip()
+            if not key:
+                return
+            save_setting("RIOT_API_KEY", key)
+            cfg.riot_api_key = key
+        riot_id = cfg.riot_id or input("Tu Riot ID (Nombre#TAG): ").strip()
+        platform = input(f"Servidor (la1=LAN, la2=LAS, na1, euw1...) [{cfg.riot_platform}]: ").strip()
+        platform = platform or cfg.riot_platform
+        save_setting("RIOT_ID", riot_id)
+        save_setting("RIOT_PLATFORM", platform)
+        run_review(cfg, riot_id, platform, 10, str(app_dir() / "informe.md"))
+
+
 def main(argv: list[str] | None = None) -> None:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            # Evita errores con tildes y emojis en consolas de Windows.
+            stream.reconfigure(encoding="utf-8", errors="replace")
     cfg = Config()
     parser = argparse.ArgumentParser(prog="lol_coach", description="Coach de IA para tus rankeds de LoL")
     parser.add_argument("--sin-voz", action="store_true", help="solo mostrar texto")
     sub = parser.add_subparsers(dest="cmd")
     sub.add_parser("en-vivo", help="coach durante la partida (por defecto)")
     sub.add_parser("demo", help="prueba con una partida de ejemplo")
+    sub.add_parser("menu", help="menú interactivo")
     review = sub.add_parser("analizar", help="analiza tus últimas rankeds con la API de Riot")
     review.add_argument("--riot-id", default=cfg.riot_id, help="Nombre#TAG")
     review.add_argument("--plataforma", default=cfg.riot_platform, help="la1, la2, na1, euw1, kr...")
@@ -173,12 +205,14 @@ def main(argv: list[str] | None = None) -> None:
     review.add_argument("--salida", help="guardar el informe en un archivo .md")
     args = parser.parse_args(argv)
 
-    if not any(os.getenv(v) for v in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_PROFILE")):
+    if not first_run_setup():
         print("Aviso: no se encontró ANTHROPIC_API_KEY. Ponla en tu archivo .env para que la IA pueda responder.")
     if args.sin_voz:
         cfg.voice_enabled = False
     try:
-        if args.cmd == "demo":
+        if args.cmd == "menu" or (args.cmd is None and getattr(sys, "frozen", False)):
+            run_menu(cfg)
+        elif args.cmd == "demo":
             run_demo(cfg)
         elif args.cmd == "analizar":
             if not args.riot_id:
@@ -188,3 +222,10 @@ def main(argv: list[str] | None = None) -> None:
             run_live(cfg)
     except KeyboardInterrupt:
         print("\n¡Suerte en tus rankeds!")
+    finally:
+        if getattr(sys, "frozen", False):
+            # Abierto con doble clic: que la ventana no se cierre sin dejar leer el mensaje.
+            try:
+                input("\nPulsa Enter para cerrar...")
+            except (KeyboardInterrupt, EOFError):
+                pass

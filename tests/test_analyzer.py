@@ -126,3 +126,13 @@ def test_summarize_match():
     assert s["participacion_asesinatos"] == "120%"
     assert s["objetos"] == ["Filo infinito"]
     assert s["rival"]["campeon"] == "Caitlyn"
+
+
+def test_save_setting_replaces_existing(tmp_path, monkeypatch):
+    from lol_coach.config import save_setting
+
+    env = tmp_path / ".env"
+    env.write_text("RIOT_ID=Viejo#LAN\nCOACH_VOICE=1\n", encoding="utf-8")
+    monkeypatch.delenv("RIOT_ID", raising=False)
+    save_setting("RIOT_ID", "Nuevo#LAN", env)
+    assert env.read_text(encoding="utf-8").splitlines() == ["COACH_VOICE=1", "RIOT_ID=Nuevo#LAN"]
