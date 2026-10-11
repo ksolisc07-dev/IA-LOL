@@ -28,6 +28,17 @@ jobs:
       - name: Pruebas
         run: python -m pytest -q
 
+      - name: Nombres oficiales de objetos en español latino (Data Dragon es_MX)
+        run: |
+          python -c "
+          from lol_coach import items
+          cat = items.catalog()
+          print(len(cat), 'objetos:', ', '.join(cat[:15]), '...')
+          assert len(cat) > 50
+          assert items.name(3026) == 'Ángel Guardián', items.name(3026)
+          assert 'Guardian Angel' not in cat
+          "
+
       - name: Crear LoLCoach.exe
         run: >
           pyinstaller --noconfirm --onefile --console --name LoLCoach

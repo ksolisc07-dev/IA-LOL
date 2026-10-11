@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import requests
-
+from lol_coach import items as item_names
 from lol_coach.champions import profile
 from lol_coach.game_state import GameSnapshot, PlayerState
 
-# id de objeto -> nombre en español (se actualiza con Data Dragon si hay internet).
+# id de objeto -> nombre en español latino, por si no se pueden descargar los oficiales.
 ITEM_NAMES = {
     3111: "Botas de Mercurio", 3047: "Botas de acero reforzado", 3156: "Fauces de Malmortius",
     3102: "Velo de la Banshee", 3157: "Reloj de arena de Zhonya", 4401: "Fuerza de la naturaleza",
@@ -21,26 +20,11 @@ ITEM_NAMES = {
     3139: "Cimitarra mercurial", 2504: "Rookern de Kaenic", 8020: "Máscara abisal",
     3222: "Bendición de Mikael", 6609: "Motosierra quimpunk",
 }
-_items_loaded = False
-
 BUILD_WORDS = ("arm", "build", "objeto", "item", "compr", "build", "botas")
 
 
 def item_name(item_id: int) -> str:
-    global _items_loaded
-    if not _items_loaded:
-        _items_loaded = True
-        try:
-            version = requests.get("https://ddragon.leagueoflegends.com/api/versions.json", timeout=5).json()[0]
-            data = requests.get(
-                f"https://ddragon.leagueoflegends.com/cdn/{version}/data/es_MX/item.json", timeout=5
-            ).json()["data"]
-            for key in ITEM_NAMES:
-                if str(key) in data:
-                    ITEM_NAMES[key] = data[str(key)]["name"]
-        except (requests.RequestException, ValueError, KeyError, IndexError):
-            pass
-    return ITEM_NAMES.get(item_id, str(item_id))
+    return item_names.name(item_id, ITEM_NAMES.get(item_id, ""))
 
 
 def _champ_profile(p: PlayerState):
@@ -203,15 +187,23 @@ def death_advice(snap: GameSnapshot) -> str:
     return " ".join(tips)
 
 
-def answer(snap: GameSnapshot | None, question: str) -> str:
+MAP_WORDS = ("jungla", "jg", "gank", "objetivo", "dragon", "dragón", "baron", "barón", "heraldo",
+             "larva", "donde", "dónde", "rotar")
+
+
+def answer(snap: GameSnapshot | None, question: str, map_report=None) -> str:
     q = question.lower()
     if snap is not None and any(w in q for w in BUILD_WORDS):
         return build_advice(snap)
-    return ("En el modo gratuito solo puedo responder qué armarte. Para preguntas libres activa la IA "
-            "con tu suscripción de Claude; mira el archivo README.")
+    if snap is not None and map_report is not None and any(w in q for w in MAP_WORDS):
+        return map_report.suggestion or map_report.summary.split("\n", 2)[1].lstrip("- ")
+    return ("En el modo gratuito solo puedo responder qué armarte y sobre el mapa (jungla enemigo, "
+            "objetivos, ganks). Para preguntas libres activa la IA con tu suscripción de Claude.")
 
 
-def advice(snap: GameSnapshot, reason: str) -> str:
+def advice(snap: GameSnapshot, reason: str, map_report=None) -> str:
+    if reason == "mapa":
+        return map_report.suggestion if map_report else ""
     if reason in ("inicio", "conexion"):
         return game_plan(snap)
     if reason == "muerte":

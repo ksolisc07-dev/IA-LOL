@@ -61,6 +61,8 @@ class Config:
     voice_rate: int = int(os.getenv("COACH_VOICE_RATE", "185"))
     # Cada cuántos segundos de partida pedir una revisión general a la IA.
     review_interval: int = int(os.getenv("COACH_REVIEW_INTERVAL", "240"))
+    # Cada cuántos segundos leer el mapa (jungla enemigo, objetivos, ganks). 0 = desactivado.
+    map_interval: int = int(os.getenv("COACH_MAPA_INTERVALO", "90"))
     poll_seconds: float = float(os.getenv("COACH_POLL_SECONDS", "2"))
     riot_api_key: str | None = os.getenv("RIOT_API_KEY")
     riot_platform: str = os.getenv("RIOT_PLATFORM", "la1")

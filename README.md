@@ -13,6 +13,10 @@ Un coach que te acompaña **por voz** durante tus partidas clasificatorias. Te d
 | Preguntas libres ("¿voy a dragón?") | Solo "¿qué me armo?" | ✅ |
 | Resumen al terminar | — | ✅ |
 
+**Lectura del mapa (cada 90 s):** el coach sigue al jungla enemigo con los eventos de la partida (asesinatos, asistencias y objetivos en los que aparece) y, con la IA, también lo busca en el minimapa. Te dice dónde se vio por última vez, qué objetivo hacer o preparar (dragón, larvas del vacío, Heraldo, Barón) y, si eres jungla, a quién gankear. Si juegas en una línea, te dice qué lado del mapa es seguro. En el modo gratuito funciona por reglas. Los tiempos de los objetivos son los de la temporada 2026 (sin Atakhan, Barón al minuto 20) y están en `lol_coach/map_tracker.py` por si Riot los cambia. Cambia la frecuencia con `COACH_MAPA_INTERVALO` (0 la desactiva).
+
+**Nombres de objetos en español latino:** se usan los nombres oficiales del servidor latinoamericano (Data Dragon `es_MX`), aunque tu cliente esté en otro idioma.
+
 **La IA ve tu partida:** con la IA activada, el coach toma capturas de tu pantalla durante la partida y se las muestra a Claude cuando mueres (lo que pasó unos segundos antes), en las revisiones periódicas y cuando haces una pregunta. Así puede ver tu posición, la visión, los enemigos visibles y el minimapa. Juega en **Ventana sin bordes** para que la captura no salga negra. Las capturas solo se toman con una partida en curso, se guardan en una carpeta temporal y solo se envían a Claude junto con cada consejo. Para desactivarlo pon `COACH_VISION=0` en el `.env`.
 
 **Activar la IA:** abre el coach y elige **"4) Activar la IA con mi suscripción de Claude"**. Instala Claude Code y abre el navegador para que inicies sesión con tu cuenta de Claude. Solo se hace una vez. El plan gratuito de Claude no incluye Claude Code.

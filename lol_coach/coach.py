@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from lol_coach import free_coach
+from lol_coach import items as item_names
 from lol_coach.ai_backends import AIError
 from lol_coach.game_state import GameSnapshot
 
 LIVE_SYSTEM = """Eres un coach profesional de League of Legends (nivel Challenger) que acompaña \
-a un jugador durante sus partidas clasificatorias. Hablas en español, con un tono directo, \
+a un jugador durante sus partidas clasificatorias. Hablas en español de Latinoamérica, con un tono directo, \
 honesto y motivador, como un coach real en el oído del jugador.
 
 Tu respuesta se leerá en voz alta con un sintetizador de voz mientras el jugador está jugando:
@@ -15,13 +16,17 @@ Tu respuesta se leerá en voz alta con un sintetizador de voz mientras el jugado
 - Ve al grano: primero el error más importante o la acción más urgente, luego el porqué en pocas palabras.
 - Sé concreto: nombra campeones, objetos, timings y posiciones del mapa.
 - Al recomendar objetos, ten en cuenta la composición enemiga (daño físico o mágico, curaciones, \
-tanques, control de masas) y los objetos que ya tienen. Usa los nombres de objetos tal como \
-aparecen en los datos de la partida cuando sea posible.
+tanques, control de masas) y los objetos que ya tienen. Usa SIEMPRE los nombres oficiales de \
+objetos del servidor latinoamericano, exactamente como aparecen en la lista que se te da; nunca \
+los digas en inglés ni con los nombres de España.
+- Usa la lectura del mapa (jungla enemigo, objetivos, ganks) para decir dónde jugar y qué hacer. \
+Regla clave: si el jungla enemigo se vio hace poco en un lado, recomienda objetivos y ganks del lado \
+contrario; no mandes al jugador al lado donde está el jungla enemigo salvo ventaja numérica clara.
 - No repitas consejos que ya diste hace poco salvo que el jugador siga cometiendo el mismo error.
 - Puedes equivocarte sobre el parche actual; prioriza principios sólidos sobre detalles de números."""
 
 REVIEW_SYSTEM = """Eres un coach profesional de League of Legends (nivel Challenger). Hablas en \
-español. Analizas partidas clasificatorias de tu alumno para encontrar los patrones que le \
+español de Latinoamérica y usas los nombres oficiales de objetos del servidor latinoamericano. Analizas partidas clasificatorias de tu alumno para encontrar los patrones que le \
 están costando victorias. Eres honesto y específico: cada crítica viene con una acción \
 concreta para corregirla. Prioriza los 3-4 problemas que más impacto tienen en ganar partidas \
 (farmeo, muertes evitables, visión, participación en objetivos, decisiones de build) en lugar \
@@ -41,6 +46,9 @@ REASON_PROMPTS = {
                 "debería hacer en los próximos minutos y qué objetos armarme con lo que ya tengo.",
     "muerte": "Acabo de morir. Dime qué probablemente hice mal según el contexto y qué debería "
               "comprar ahora con mi oro disponible (si puedo comprar algo útil).",
+    "mapa": "Lectura de mapa. En una o dos frases cortas: dónde está probablemente el jungla enemigo "
+            "(búscalo en el minimapa si tienes captura y usa los avistamientos), qué objetivo conviene "
+            "hacer o preparar ahora, y {accion}. Si no hay nada que valga la pena decir, responde solo: NADA",
     "revision": "Revisión rápida: ¿qué es lo más importante que debería mejorar o hacer en los próximos minutos?",
 }
 
@@ -71,9 +79,15 @@ class Coach:
             print(f"[IA] {exc} Uso el modo gratuito para este consejo.")
             return None
 
-    def _live_prompt(self, snap: GameSnapshot, request: str, alerts: list[str]) -> str:
+    def _live_prompt(self, snap: GameSnapshot, request: str, alerts: list[str], map_report=None) -> str:
         parts = ["Estado actual de la partida:", snap.to_prompt(), "",
                  "Análisis automático de la composición enemiga:", free_coach.build_advice(snap)]
+        if map_report is not None:
+            parts += ["", map_report.summary]
+        catalog = item_names.catalog()
+        if catalog:
+            parts += ["", "Nombres oficiales de objetos en español de Latinoamérica (usa exactamente estos):",
+                      ", ".join(catalog)]
         if alerts:
             parts += ["", "Alertas automáticas recientes:", *[f"- {a}" for a in alerts]]
         if self.recent_tips:
@@ -83,24 +97,32 @@ class Coach:
         return "\n".join(parts)
 
     def live_advice(self, snap: GameSnapshot, reason: str, alerts: list[str] | None = None,
-                    images: list[tuple[str, str]] | None = None) -> str:
+                    images: list[tuple[str, str]] | None = None, map_report=None) -> str:
         request = REASON_PROMPTS.get(reason, REASON_PROMPTS["revision"])
-        prompt = self._live_prompt(snap, request, alerts or [])
+        if reason == "mapa":
+            action = ("a quién gankear y por qué" if snap.me.position == "JUNGLE"
+                      else "qué lado del mapa es seguro para mí y si conviene rotar o presionar")
+            request = request.format(accion=action)
+        prompt = self._live_prompt(snap, request, alerts or [], map_report)
         advice = self._ask(LIVE_SYSTEM, prompt, self.live_effort, max_tokens=4000, images=images)
         if advice is None:
-            advice = free_coach.advice(snap, reason)
+            advice = free_coach.advice(snap, reason, map_report)
+        if advice.strip().upper().rstrip(".") == "NADA":
+            return ""
+        if reason in ("mapa", "revision") and advice in self.recent_tips[-2:]:
+            return ""  # no repetir la misma lectura del mapa
         if advice:
             self.recent_tips.append(advice)
         return advice
 
     def answer(self, snap: GameSnapshot | None, question: str,
-               images: list[tuple[str, str]] | None = None) -> str:
+               images: list[tuple[str, str]] | None = None, map_report=None) -> str:
         if snap is None:
             prompt = f"No hay una partida en curso. Pregunta del jugador: {question}"
         else:
-            prompt = self._live_prompt(snap, f"Pregunta del jugador: {question}", [])
+            prompt = self._live_prompt(snap, f"Pregunta del jugador: {question}", [], map_report)
         advice = self._ask(LIVE_SYSTEM, prompt, self.live_effort, max_tokens=4000, images=images)
-        return advice if advice is not None else free_coach.answer(snap, question)
+        return advice if advice is not None else free_coach.answer(snap, question, map_report)
 
     def post_game(self, game_summary: str) -> str:
         prompt = (

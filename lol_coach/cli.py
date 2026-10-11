@@ -71,9 +71,11 @@ def _question_loop(worker: CoachWorker, state: dict, recorder: ScreenRecorder | 
         question = line.strip()
         if question:
             snap = state.get("snap")
+            analyzer = state.get("analyzer")
+            map_report = analyzer.map_report(snap) if analyzer and snap else None
             # Captura de unos segundos antes: al escribir estás en esta ventana, no en el juego.
             images = recorder.capture(seconds_ago=4) if recorder and snap else None
-            worker.submit(worker.coach.answer, snap, question, images, force=True)
+            worker.submit(worker.coach.answer, snap, question, images, map_report, force=True)
 
 
 def make_recorder(cfg: Config, coach: Coach) -> ScreenRecorder | None:
@@ -102,7 +104,7 @@ def run_live(cfg: Config, client=None) -> None:
     coach = make_coach(cfg)
     worker = CoachWorker(coach, voice)
     client = client or LiveClient()
-    state: dict[str, GameSnapshot | None] = {"snap": None}
+    state: dict = {"snap": None, "analyzer": None}
     recorder = make_recorder(cfg, coach)
     threading.Thread(target=_question_loop, args=(worker, state, recorder), daemon=True).start()
 
@@ -120,14 +122,16 @@ def run_live(cfg: Config, client=None) -> None:
                 print("La partida terminó. Generando resumen...")
                 worker.submit(coach.post_game, log.summary(), force=True)
                 coach.recent_tips.clear()
-            analyzer, log, state["snap"] = None, None, None
+            analyzer, log, state["snap"], state["analyzer"] = None, None, None, None
             if recorder:
                 recorder.set_active(False)
             time.sleep(5)
             continue
 
         if analyzer is None:
-            analyzer, log = Analyzer(review_interval=cfg.review_interval), LiveGameLog()
+            analyzer = Analyzer(review_interval=cfg.review_interval, map_interval=cfg.map_interval)
+            log = LiveGameLog()
+            state["analyzer"] = analyzer
             print(f"Partida detectada: {snap.me.champion} ({snap.me.role}).")
             if recorder:
                 recorder.set_active(True)
@@ -141,12 +145,16 @@ def run_live(cfg: Config, client=None) -> None:
         if reasons:
             reason = "muerte" if "muerte" in reasons else reasons[0]
             context = [a.message for a in alerts if a.message]
+            map_report = next((a.map_report for a in alerts if a.map_report), None) or analyzer.map_report(snap)
             images = None
             if recorder and reason == "muerte":
                 images = recorder.capture_death()
             elif recorder and reason in ("revision", "conexion"):
                 images = recorder.capture()
-            worker.submit(coach.live_advice, snap, reason, context, images, force=reason != "revision")
+            elif recorder and reason == "mapa":
+                images = recorder.capture_minimap()
+            worker.submit(coach.live_advice, snap, reason, context, images, map_report,
+                          force=reason not in ("revision", "mapa"))
         time.sleep(cfg.poll_seconds)
 
 

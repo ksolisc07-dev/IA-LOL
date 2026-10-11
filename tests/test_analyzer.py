@@ -261,3 +261,62 @@ def test_subscription_backend_sends_images(monkeypatch, tmp_path):
     assert str(shot) in seen["input"] and "mi pantalla" in seen["input"]
     backend.ask("sistema", "consejo", "low", 100)
     assert seen["cmd"][seen["cmd"].index("--tools") + 1] == ""
+
+
+def _tracker_after_demo():
+    from lol_coach.map_tracker import MapTracker
+
+    snap = demo_snapshot()
+    tracker = MapTracker()
+    for event in snap.events:
+        tracker.on_event(event, snap)
+    return snap, tracker
+
+
+def test_map_tracker_follows_enemy_jungler_and_objectives():
+    snap, tracker = _tracker_after_demo()
+    report = tracker.report(snap)
+    # Kha'Zix (jungla enemigo) mató a Jinx en bot hace 5 s y tomó el dragón al 9:08.
+    assert "Kha'Zix (jungla enemigo) visto por última vez en bot hace 5 s" in report.summary
+    assert "El dragón (río inferior, lado bot): disponible ahora" in report.summary  # reapareció al 14:08
+    assert "Las larvas del vacío (río superior, lado top): disponible ahora" in report.summary
+    assert report.suggestion == "Kha'Zix se vio en bot: buen momento para hacer las larvas del vacío."
+
+
+def test_gank_targets_avoid_side_of_enemy_jungler():
+    snap, tracker = _tracker_after_demo()
+    targets = tracker.gank_targets(snap)
+    assert targets[0][0] == "top"  # Darius nivel 11 contra Malphite nivel 10
+    assert targets[-1][0] == "bot" and "su jungla está cerca" in targets[-1][1]
+
+
+def test_jungler_gets_told_where_to_gank_when_enemy_jungler_shows():
+    from lol_coach.map_tracker import MapTracker
+
+    snap = demo_snapshot()
+    lee = next(p for p in snap.allies if p.champion == "Lee Sin")
+    snap = replace(snap, me=lee)
+    kill = {"EventID": 99, "EventName": "ChampionKill", "EventTime": 860, "KillerName": "Enemigo2#LAN",
+            "VictimName": "Soporte#LAN", "Assisters": []}
+    notes = MapTracker().on_event(kill, snap)
+    assert notes == [("Kha'Zix se mostró en bot. El lado top está libre: gankea top o invade su jungla "
+                      "de ese lado.", 2)]
+
+
+def test_objective_spawn_warning_and_dead_jungler():
+    from lol_coach.map_tracker import MapTracker
+
+    snap = demo_snapshot()
+    tracker = MapTracker()
+    assert tracker.tick(19 * 60 + 5) == [
+        ("El Barón aparece en un minuto. Empuja tu oleada y pon visión en el río superior.", 2)]
+    assert tracker.tick(19 * 60 + 10) == []  # solo una vez
+    dead_jg = [replace(e, is_dead=True, respawn_timer=25) if e.champion == "Kha'Zix" else e for e in snap.enemies]
+    report = tracker.report(replace(snap, enemies=dead_jg))
+    assert report.suggestion.startswith("Kha'Zix está muerto 25 segundos: es el momento de ir por")
+
+
+def test_free_mode_answers_map_questions():
+    snap, tracker = _tracker_after_demo()
+    text = free_coach.answer(snap, "¿dónde está el jungla?", tracker.report(snap))
+    assert "Kha'Zix" in text

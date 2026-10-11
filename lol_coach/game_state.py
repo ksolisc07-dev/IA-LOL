@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from lol_coach import items as item_names
+
 ROLE_NAMES = {
     "TOP": "top",
     "JUNGLE": "jungla",
@@ -30,6 +32,7 @@ class PlayerState:
     respawn_timer: float
     aliases: set[str] = field(default_factory=set)
     champion_id: str = ""  # id interno (p. ej. "MonkeyKing" para Wukong)
+    has_smite: bool = False
 
     @property
     def role(self) -> str:
@@ -150,11 +153,13 @@ def _parse_player(raw: dict) -> PlayerState:
         assists=int(scores.get("assists", 0)),
         cs=int(scores.get("creepScore", 0)),
         ward_score=float(scores.get("wardScore", 0.0)),
-        items=[i.get("displayName", str(i.get("itemID"))) for i in items],
+        items=[item_names.name(i.get("itemID"), i.get("displayName", "")) for i in items],
         is_dead=bool(raw.get("isDead", False)),
         respawn_timer=float(raw.get("respawnTimer", 0.0)),
         aliases=_aliases(raw),
         champion_id=(raw.get("rawChampionName") or "").rsplit("_", 1)[-1],
+        has_smite=any("Smite" in (spell or {}).get("rawDisplayName", "")
+                      for spell in (raw.get("summonerSpells") or {}).values()),
     )
 
 

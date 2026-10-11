@@ -116,3 +116,10 @@ class ScreenRecorder:
         if now is None:
             return before
         return before + [(self._save(now, "muerte", self.max_width), "mi pantalla al morir")]
+
+    def capture_minimap(self) -> list[tuple[str, str]]:
+        """Solo el minimapa ampliado: suficiente para ubicar al jungla enemigo."""
+        image = self._frame_near(0)
+        if image is None:
+            return []
+        return [(self._save(self._minimap(image), "minimapa", 700), "zoom del minimapa ahora")]

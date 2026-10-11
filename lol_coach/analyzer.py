@@ -9,11 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from lol_coach.game_state import GameSnapshot
-
-DRAGON_FIRST_SPAWN = 5 * 60
-DRAGON_RESPAWN = 5 * 60
-BARON_FIRST_SPAWN = 20 * 60
-BARON_RESPAWN = 6 * 60
+from lol_coach.map_tracker import MapReport, MapTracker
 
 CS_TARGET = {"JUNGLE": 5.0, "UTILITY": 0.0}
 DEFAULT_CS_TARGET = 6.5
@@ -25,18 +21,20 @@ class Alert:
     # Si no es None, también se pide a la IA un consejo por este motivo.
     coach_reason: str | None = None
     priority: int = 1
+    # Lectura del mapa que acompaña a los avisos de "mapa".
+    map_report: MapReport | None = None
 
 
 @dataclass
 class Analyzer:
     review_interval: int = 240
+    map_interval: int = 90
+    tracker: MapTracker = field(default_factory=MapTracker)
     _cooldowns: dict[str, float] = field(default_factory=dict)
     _seen_event_ids: set[int] = field(default_factory=set)
-    _next_dragon: float = DRAGON_FIRST_SPAWN
-    _next_baron: float = BARON_FIRST_SPAWN
-    _announced: set[str] = field(default_factory=set)
     _death_times: list[float] = field(default_factory=list)
     _last_review: float = 0.0
+    _last_map: float = 0.0
     _started: bool = False
 
     def _ready(self, key: str, now: float, cooldown: float) -> bool:
@@ -52,11 +50,10 @@ class Analyzer:
 
         if not self._started:
             self._started = True
-            self._last_review = now
+            self._last_review = self._last_map = now
             # Procesa en silencio los eventos previos (p. ej. si arrancas el coach a mitad de
             # partida) para tener timers de objetivos y racha de muertes correctos.
             self._process_events(snap)
-            self._announced.clear()
             if now < 180:
                 alerts.append(Alert("Coach activado. Preparando tu plan de juego.", coach_reason="inicio", priority=2))
             else:
@@ -65,15 +62,21 @@ class Analyzer:
             return alerts
 
         alerts += self._process_events(snap)
-        alerts += self._objective_timers(now)
+        alerts += [Alert(msg, priority=p) for msg, p in self.tracker.tick(now)]
         alerts += self._economy(snap)
         alerts += self._farming(snap)
         alerts += self._vision(snap)
 
         if now - self._last_review >= self.review_interval and not snap.me.is_dead:
-            self._last_review = now
+            self._last_review = self._last_map = now
             alerts.append(Alert("", coach_reason="revision"))
+        elif self.map_interval and now - self._last_map >= self.map_interval and not snap.me.is_dead:
+            self._last_map = now
+            alerts.append(Alert("", coach_reason="mapa", map_report=self.tracker.report(snap)))
         return alerts
+
+    def map_report(self, snap: GameSnapshot) -> MapReport:
+        return self.tracker.report(snap)
 
     # ---------------------------------------------------------------- eventos
     def _process_events(self, snap: GameSnapshot) -> list[Alert]:
@@ -96,26 +99,12 @@ class Analyzer:
                     msg = "Has muerto."
                 alerts.append(Alert(msg, coach_reason="muerte", priority=3))
 
-            elif name == "DragonKill":
-                self._next_dragon = t + DRAGON_RESPAWN
-                self._announced.discard("dragon")
-            elif name == "BaronKill":
-                self._next_baron = t + BARON_RESPAWN
-                self._announced.discard("baron")
+            alerts += [Alert(msg, priority=p) for msg, p in self.tracker.on_event(event, snap)]
+            if name == "BaronKill":
                 killer = snap.player_by_alias(event.get("KillerName", ""))
                 if killer and killer.team != snap.me.team:
                     alerts.append(Alert("El enemigo tiene Barón. No pelees en campo abierto, "
                                         "defiende bajo torre y limpia oleadas.", priority=3))
-        return alerts
-
-    def _objective_timers(self, now: float) -> list[Alert]:
-        alerts = []
-        if self._next_dragon - 60 <= now < self._next_dragon and "dragon" not in self._announced:
-            self._announced.add("dragon")
-            alerts.append(Alert("El dragón aparece en un minuto. Empuja tu oleada y prepara visión.", priority=2))
-        if self._next_baron - 60 <= now < self._next_baron and "baron" not in self._announced:
-            self._announced.add("baron")
-            alerts.append(Alert("El Barón aparece en un minuto. Coloca guardianes en el río superior.", priority=2))
         return alerts
 
     # ------------------------------------------------------------- economía
